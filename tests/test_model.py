@@ -1,7 +1,7 @@
 import pytest
 import numpy as np
 
-from perf_gan.model import Model
+from perf_gan.models.model import Model
 
 
 @pytest.mark.parametrize(
