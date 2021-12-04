@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import pickle as pickle
 
 
 class Dataset:
@@ -10,10 +11,15 @@ class Dataset:
             sr (int, optional): sampling rate. Defaults to 1600.
         """
 
+        # unexpressive contours:
         self.u_f0 = None
         self.u_lo = None
+        # expressive contours:
         self.e_f0 = None
         self.e_l0 = None
+        # onsets and offsets:
+        self.onsets = None
+        self.offsets = None
 
         self.samples_duration = None
         self.sr = sr
@@ -22,7 +28,7 @@ class Dataset:
         self.intervals = 1 / (np.power(2, np.arange(self.n_intervals)))
         self.vibrato_f = 100
         self.p_vibrato = 1.  # first we consider there is always a vibrato
-        self.sparcity = .5
+        self.sparcity = .8
 
     def build(self, n: int, duration: int):
         """Build the dataset composed of n samples of length duration (in s.)
@@ -33,18 +39,25 @@ class Dataset:
         """
         self.samples_duration = duration
 
+        # initialize unexpressive contours:
         self.u_f0 = np.zeros(n * duration * self.sr)
         self.u_lo = np.zeros(n * duration * self.sr)
 
+        # initialize expressive contours:
         self.e_f0 = np.zeros(n * duration * self.sr)
         self.e_lo = np.zeros(n * duration * self.sr)
+
+        # initialize onsets and offsets
+        self.onsets = np.zeros(n * duration * self.sr)
+        self.offsets = np.zeros(n * duration * self.sr)
+
         start = 0
 
         while start < duration * n * self.sr:
             interval = np.random.choice(self.intervals)
             length = int(interval * self.sr)
             self._build_pitch(start, length)
-            self._build_lo(start, length)
+            self._build_lo(start, length, type="mean")
             start += length
 
     def _build_pitch(self, start: int, length: int):
@@ -69,24 +82,48 @@ class Dataset:
         self.e_f0[start:end] = (f + v)[:len(self.e_f0[start:end])]
         self.u_f0[start:end] = f[:len(self.u_f0[start:end])]
 
-    def _build_lo(self, start: int, length: int):
+    def _build_lo(self, start: int, length: int, type="peak"):
         """Generate the loudness contours for one sample
 
         Args:
             start (int): start index of the sample
             length (int): length of the sample
+            type (str, optional): MIDI loudness = type(Expressive loudness)
+            peak and mean are implemented. Defaults to "peak".
         """
+
         end = start + length
         # mimic the amplitude range (MIDI norm [0, 255])
-        amp = np.tile(np.random.randint(180, 230), length)
-        # include silent notes
-        amp *= (np.random.random() < self.sparcity)
-        #  hanning window
-        window = np.hanning(length)
+        amp = np.tile(np.random.randint(100, 230), length)
 
-        # add to contours:
-        self.u_lo[start:end] = amp[:len(self.e_lo[start:end])]
-        self.e_lo[start:end] = (amp * window)[:len(self.u_lo[start:end])]
+        #  hanning window
+        # add expressive attack and release
+        a1 = np.logspace(1,
+                         np.log(amp[0] / 2),
+                         length // 8 + 1,
+                         base=np.exp(1))
+
+        a2 = amp[:length // 8] - np.logspace(
+            np.log(amp[0] / 2), 1, length // 8, base=np.exp(1))
+        attack = np.concatenate([a1, a2])
+
+        release = np.logspace(np.log(amp[0]), 1, length // 4, base=np.exp(1))
+        e_lo = np.concatenate((attack, amp[:length // 2], release))
+
+        # include silent notes
+        e_lo *= (np.random.random() < self.sparcity)
+
+        # create contours:
+        self.e_lo[start:end] = e_lo[:len(self.e_lo[start:end])]
+
+        if type == "mean":
+            self.u_lo[start:end] = np.tile(np.mean(e_lo),
+                                           len(self.e_lo[start:end]))
+        elif type == "peak":
+            self.u_lo[start:end] = np.tile(np.max(e_lo),
+                                           len(self.e_lo[start:end]))
+        else:
+            raise ValueError
 
     def show(self, n: int):
         """Show n samples of length duration * sr (in s.) of the dataset
@@ -119,10 +156,21 @@ class Dataset:
             path (str): Path to the directory
             filename (str): exported file name
         """
-        pass
+        data = {
+            "u_f0": self.u_f0,
+            "u_lo": self.u_lo,
+            "e_f0": self.e_f0,
+            "e_lo": self.e_lo,
+            "onsets": self.onsets,
+            "offsets": self.offsets
+        }
+
+        with open(path + filename, "wb") as file_out:
+            pickle.dump(data, file_out)
 
 
 if __name__ == '__main__':
     d = Dataset()
     d.build(10, 5)
     d.show(1)
+    d.export("src/perf_gan/data/", "data.pickle")
