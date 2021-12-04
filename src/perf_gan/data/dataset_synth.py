@@ -4,6 +4,11 @@ import matplotlib.pyplot as plt
 
 class Dataset:
     def __init__(self, sr=1600):
+        """Synthetic Dataset constructor. It aims at mimicking violin pitch and loudness contours
+
+        Args:
+            sr (int, optional): sampling rate. Defaults to 1600.
+        """
 
         self.u_f0 = None
         self.u_lo = None
@@ -43,6 +48,12 @@ class Dataset:
             start += length
 
     def _build_pitch(self, start: int, length: int):
+        """Generate the pitch contours for one sample
+
+        Args:
+            start (int): start index of the sample
+            length (int): length of the sample
+        """
         end = start + length
 
         # mimic frequency range of the violin (G3 -> 4 octaves)
@@ -59,6 +70,12 @@ class Dataset:
         self.u_f0[start:end] = f[:len(self.u_f0[start:end])]
 
     def _build_lo(self, start: int, length: int):
+        """Generate the loudness contours for one sample
+
+        Args:
+            start (int): start index of the sample
+            length (int): length of the sample
+        """
         end = start + length
         # mimic the amplitude range (MIDI norm [0, 255])
         amp = np.tile(np.random.randint(180, 230), length)
@@ -94,6 +111,15 @@ class Dataset:
                                self.samples_duration * self.sr],
                      label="expressive")
             plt.show()
+
+    def export(self, path: str, filename: str):
+        """Exporting the dataset to a pickle file 
+
+        Args:
+            path (str): Path to the directory
+            filename (str): exported file name
+        """
+        pass
 
 
 if __name__ == '__main__':
