@@ -111,19 +111,25 @@ class Dataset:
         e_lo = np.concatenate((attack, amp[:length // 2], release))
 
         # include silent notes
-        e_lo *= (np.random.random() < self.sparcity)
+        note_on = (np.random.random() < self.sparcity)
 
         # create contours:
-        self.e_lo[start:end] = e_lo[:len(self.e_lo[start:end])]
+        self.e_lo[start:end] = e_lo[:len(self.e_lo[start:end])] * note_on
 
         if type == "mean":
-            self.u_lo[start:end] = np.tile(np.mean(e_lo),
+            self.u_lo[start:end] = np.tile(np.mean(e_lo * note_on),
                                            len(self.e_lo[start:end]))
         elif type == "peak":
-            self.u_lo[start:end] = np.tile(np.max(e_lo),
+            self.u_lo[start:end] = np.tile(np.max(e_lo * note_on),
                                            len(self.e_lo[start:end]))
         else:
             raise ValueError
+
+        # update onsets and offsets:
+        if note_on:
+            self.onsets[start] = 1
+            if end < len(self.offsets):
+                self.offsets[end] = 1
 
     def show(self, n: int):
         """Show n samples of length duration * sr (in s.) of the dataset
@@ -133,20 +139,24 @@ class Dataset:
         """
 
         for i in range(n):
-            plt.plot(self.u_f0[i * self.samples_duration * self.sr:(i + 1) *
-                               self.samples_duration * self.sr],
-                     label="unexpressive")
-            plt.plot(self.e_f0[i * self.samples_duration * self.sr:(i + 1) *
-                               self.samples_duration * self.sr],
-                     label="expressive")
-            plt.show()
+            a, b = [
+                i * self.samples_duration * self.sr,
+                (i + 1) * self.samples_duration * self.sr
+            ]
 
-            plt.plot(self.u_lo[i * self.samples_duration * self.sr:(i + 1) *
-                               self.samples_duration * self.sr],
-                     label="unexpressive")
-            plt.plot(self.e_lo[i * self.samples_duration * self.sr:(i + 1) *
-                               self.samples_duration * self.sr],
-                     label="expressive")
+            plt.subplot(1, 2, 1)
+            plt.plot(self.u_f0[a:b], label="unexpressive")
+            plt.plot(self.e_f0[a:b], label="expressive")
+            plt.plot(self.onsets[a:b] * 50, label="onsets")
+            plt.plot(self.offsets[a:b] * 50, label="offsets")
+            plt.title("pitch")
+            plt.subplot(1, 2, 2)
+            plt.plot(self.u_lo[a:b], label="unexpressive")
+            plt.plot(self.e_lo[a:b], label="expressive")
+            plt.plot(self.onsets[a:b] * 50, label="onsets")
+            plt.plot(self.offsets[a:b] * 50, label="offsets")
+            plt.title("loudness")
+            plt.legend()
             plt.show()
 
     def export(self, path: str, filename: str):
