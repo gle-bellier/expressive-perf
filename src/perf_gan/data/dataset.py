@@ -163,10 +163,3 @@ class GANDataset(Dataset):
         ], -1)
 
         return [u_contours, e_contours, s_onsets, s_offsets]
-
-
-if __name__ == '__main__':
-    l = [(StandardScaler, {}), (MinMaxScaler, {})]
-    d = GANDataset("data/dataset.pickle", list_transforms=l)
-    d.transform()
-    print(d[0])

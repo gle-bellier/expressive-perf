@@ -1,4 +1,5 @@
 import pytest
+import torch
 import numpy as np
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
@@ -23,7 +24,6 @@ def test_dataset_creation(sr: int, n: int, duration: int):
     """
     data = DatasetCreator(sr=sr)
     data.build(n, duration)
-    print(data.e_f0)
     assert len(data.e_f0) == n * duration * sr
 
 
@@ -40,3 +40,15 @@ def test_dataset_items():
         item = d[0]
         for idx in range(4):
             assert len(item[idx]) == size
+
+
+def test_dataset_items_range():
+    """Test size of dataset items ranges
+    """
+    l = [(StandardScaler, {}), (MinMaxScaler, {})]
+    d = GANDataset(path="data/dataset.pickle",
+                   n_sample=1024,
+                   list_transforms=l)
+    d.transform()
+    # loop over the 4 components (u contours, e contours, onsets, offsets)
+    assert torch.min(d.e_lo) == 0 and torch.max(d.e_lo) == 1
