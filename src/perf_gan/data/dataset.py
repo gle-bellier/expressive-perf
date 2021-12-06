@@ -41,7 +41,7 @@ class GANDataset(Dataset):
         self.scalers = None
         self.eval = eval
 
-        print("Dataset loaded. Length : {}min".format(self.N // 6000))
+        print("Dataset loaded.")
 
     def __fit_transforms(self) -> list[object]:
         """Fit the two transforms to the contours
