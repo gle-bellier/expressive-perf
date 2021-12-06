@@ -77,6 +77,7 @@ class GANDataset(Dataset):
         self.offsets = torch.from_numpy(self.offsets).float()
 
         # apply transforms to pitch and loudness contours
+
         self.u_f0 = self.__apply_transform(self.u_f0, self.scalers[0])
         self.e_f0 = self.__apply_transform(self.e_f0, self.scalers[0])
         self.u_lo = self.__apply_transform(self.u_lo, self.scalers[1])
@@ -135,10 +136,9 @@ class GANDataset(Dataset):
         """
         N = self.n_sample
         idx *= N
-
-        # add jitter during training only
-        if not self.eval:
-            idx += randint(0, N // 10)
+        # # add jitter during training only
+        # if not self.eval:
+        #     idx += randint(0, N // 10)
 
         idx = max(idx, 0)
         idx = min(idx, len(self) * self.n_sample - self.n_sample)

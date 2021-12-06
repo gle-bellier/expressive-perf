@@ -131,34 +131,6 @@ class DatasetCreator:
             if end < len(self.offsets):
                 self.offsets[end] = 1
 
-    def show(self, n: int) -> None:
-        """Show n samples of length duration * sr (in s.) of the dataset
-
-        Args:
-            n (int): number of samples to show
-        """
-
-        for i in range(n):
-            a, b = [
-                i * self.samples_duration * self.sr,
-                (i + 1) * self.samples_duration * self.sr
-            ]
-
-            plt.subplot(1, 2, 1)
-            plt.plot(self.u_f0[a:b], label="unexpressive")
-            plt.plot(self.e_f0[a:b], label="expressive")
-            plt.plot(self.onsets[a:b] * 50, label="onsets")
-            plt.plot(self.offsets[a:b] * 50, label="offsets")
-            plt.title("pitch")
-            plt.subplot(1, 2, 2)
-            plt.plot(self.u_lo[a:b], label="unexpressive")
-            plt.plot(self.e_lo[a:b], label="expressive")
-            plt.plot(self.onsets[a:b] * 50, label="onsets")
-            plt.plot(self.offsets[a:b] * 50, label="offsets")
-            plt.title("loudness")
-            plt.legend()
-            plt.show()
-
     def export(self, path: str, filename: str) -> None:
         """Exporting the dataset to a pickle file 
 
@@ -180,7 +152,6 @@ class DatasetCreator:
 
 
 if __name__ == '__main__':
-    d = Dataset()
-    d.build(10, 5)
-    d.show(1)
+    d = DatasetCreator()
+    d.build(1000, 5)
     d.export("data/", "dataset.pickle")
