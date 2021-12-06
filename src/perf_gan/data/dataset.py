@@ -136,9 +136,9 @@ class GANDataset(Dataset):
         """
         N = self.n_sample
         idx *= N
-        # # add jitter during training only
-        # if not self.eval:
-        #     idx += randint(0, N // 10)
+        # add jitter during training only
+        if not self.eval:
+            idx += randint(0, N // 10)
 
         idx = max(idx, 0)
         idx = min(idx, len(self) * self.n_sample - self.n_sample)
