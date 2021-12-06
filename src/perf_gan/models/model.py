@@ -1,4 +1,4 @@
-from perf_gan.data.dataset_synth import Dataset
+from perf_gan.data.make_dataset import DatasetCreator
 
 
 class Model:
@@ -7,8 +7,3 @@ class Model:
 
     def forward(self, x):
         return x**2
-
-
-if __name__ == '__main__':
-    d = Dataset(3)
-    print(d.get())
