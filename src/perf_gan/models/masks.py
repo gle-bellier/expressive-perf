@@ -58,4 +58,7 @@ if __name__ == '__main__':
     # plt.plot(masked_u_lo - masked_e_lo)
     # plt.show()
 
-    print(torch.mean(masked_e_f0, dim=0))
+    diff = torch.abs(masked_e_f0 - masked_u_f0)
+    print((diff > .4).shape)
+    loss = torch.mean((diff > .4).float()) / torch.mean(mask)
+    print(loss)
