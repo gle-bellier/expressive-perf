@@ -35,14 +35,27 @@ if __name__ == '__main__':
     e_f0, e_lo = dataset.inverse_transform(x[0])
     e_f0.unsqueeze_(-1)
     e_lo.unsqueeze_(-1)
-    masked_e_f0 = e_f0 * mask
-    masked_e_lo = e_lo * mask
+    masked_e_f0 = mask * e_f0
+    masked_e_lo = mask * e_lo
 
-    for i in range(mask.shape[1]):
-        plt.subplot(1, 2, 1)
-        plt.plot(e_f0)
-        plt.plot(masked_e_f0[:, i])
-        plt.subplot(1, 2, 2)
-        plt.plot(e_lo)
-        plt.plot(masked_e_lo[:, i])
-        plt.show()
+    u_f0, u_lo = dataset.inverse_transform(x[1])
+    u_f0.unsqueeze_(-1)
+    u_lo.unsqueeze_(-1)
+    masked_u_f0 = mask * u_f0
+    masked_u_lo = mask * u_lo
+
+    # plt.subplot(1, 2, 1)
+    # plt.plot(masked_u_f0)
+    # plt.plot(masked_e_f0)
+    # plt.subplot(1, 2, 2)
+    # plt.plot(masked_u_lo)
+    # plt.plot(masked_e_lo)
+    # plt.show()
+
+    # plt.subplot(1, 2, 1)
+    # plt.plot(masked_u_f0 - masked_e_f0)
+    # plt.subplot(1, 2, 2)
+    # plt.plot(masked_u_lo - masked_e_lo)
+    # plt.show()
+
+    print(torch.mean(masked_e_f0, dim=0))
