@@ -96,7 +96,7 @@ class GANDataset(Dataset):
         out = scaler.transform(x.reshape(-1, 1)).squeeze(-1)
         return torch.from_numpy(out).float()
 
-    def inverse_transform(self, x: torch.Tensor) -> list[np.ndarray]:
+    def inverse_transform(self, x: torch.Tensor) -> list[torch.Tensor]:
         """Inverse transform a vector (f0, lo)
 
         Args:
@@ -114,7 +114,7 @@ class GANDataset(Dataset):
         f0 = self.scalers[0].inverse_transform(f0).reshape(-1)
         lo = self.scalers[1].inverse_transform(lo).reshape(-1)
 
-        return [f0, lo]
+        return [torch.Tensor(f0), torch.Tensor(lo)]
 
     def __len__(self) -> int:
         """Compute the number of samples in the dataset
