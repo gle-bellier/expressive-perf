@@ -4,7 +4,7 @@ import pickle as pickle
 
 
 class DatasetCreator:
-    def __init__(self, sr=1600):
+    def __init__(self, sr=160):
         """Synthetic Dataset constructor. It aims at mimicking violin pitch and loudness contours
 
         Args:

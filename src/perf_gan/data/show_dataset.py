@@ -9,7 +9,7 @@ class Visualizer:
     def __init__(self, path):
 
         transforms = [(StandardScaler, {}), (MinMaxScaler, {})]
-        self.dataset = GANDataset(path, 1600 * 5, transforms)
+        self.dataset = GANDataset(path, 160 * 5, transforms)
         self.dataset.transform()
 
     def show(self, n: int) -> None:
