@@ -26,7 +26,6 @@ class GANDataset(Dataset):
         print("Loading Dataset...")
         with open(path, "rb") as dataset:
             dataset = pickle.load(dataset)
-            print("Dataset loaded")
 
         self.u_f0 = dataset["u_f0"]
         self.e_f0 = dataset["e_f0"]
