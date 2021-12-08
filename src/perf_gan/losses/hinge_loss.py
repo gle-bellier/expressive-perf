@@ -1,14 +1,14 @@
 import torch
 
 
-class LSGAN_loss:
+class Hinge_loss:
     def __init__(self):
-        """Loss used for LSGANs
+        """Hinge loss for GANs
         """
         pass
 
     def disc_loss(self, dx: torch.Tensor, dgz: torch.Tensor) -> torch.Tensor:
-        """Compute the discriminator loss in the LSGAN fashion
+        """Compute the discriminator term in the Hinge loss
 
         Args:
             dx (torch.Tensor): output of the discriminator for real samples
@@ -18,13 +18,14 @@ class LSGAN_loss:
             torch.Tensor: loss of the discriminator 
         """
 
-        loss_fake = 0.5 * torch.mean((dx - 1)**2)
-        loss_real = 0.5 * torch.mean(dgz**2)
+        zeros = torch.zeros_like(dx)
+        loss_real = -torch.mean(torch.min(zeros, -1 + dx))
+        loss_fake = -torch.mean(torch.min(zeros, -1 - dgz))
 
-        return loss_fake + loss_real
+        return loss_real + loss_fake
 
-    def gen_loss(self, dx, dgz):
-        """Compute the generator loss in the LSGAN fashion
+    def gen_loss(self, dx: torch.Tensor, dgz: torch.Tensor) -> torch.Tensor:
+        """Compute the generator term in the Hinge loss
 
         Args:
             dx (torch.Tensor): output of the generator for real samples
@@ -34,5 +35,7 @@ class LSGAN_loss:
             torch.Tensor: loss of the generator 
         """
 
-        loss_gen = 0.5 * torch.mean((dgz - 1)**2)
-        return loss_gen
+        loss_real = 0  #torch.mean(dx)
+        loss_fake = -torch.mean(dgz)
+
+        return loss_real + loss_fake
