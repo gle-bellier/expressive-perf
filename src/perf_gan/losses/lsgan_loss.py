@@ -3,6 +3,8 @@ import torch
 
 class LSGAN_loss:
     def __init__(self):
+        """Loss used for LSGANs
+        """
         pass
 
     def disc_loss(self, dx: torch.Tensor, dgz: torch.Tensor) -> torch.Tensor:
