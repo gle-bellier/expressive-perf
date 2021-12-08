@@ -8,7 +8,7 @@ class PitchLoss(nn.Module):
         the unexpressive contours (the reference)
 
         Args:
-            threshold ([type]): [description]
+            threshold (float): threshold above which the contours is considered off (in the midi norm, 0.5 is a quarter ton)
         """
         super().__init(self)
         self.threshold = threshold
