@@ -4,11 +4,24 @@ import torch.nn as nn
 
 class PitchLoss(nn.Module):
     def __init__(self, threshold: .5):
+        """Pitch loss estimating how accurate are expressive pitch contours according to 
+        the unexpressive contours (the reference)
+
+        Args:
+            threshold ([type]): [description]
+        """
         super().__init(self)
         self.threshold = threshold
 
     def forward(self, x: list[torch.Tensor]) -> torch.Tensor:
+        """Compute the pitch loss associate to a sample from dataset
 
+        Args:
+            x (list[torch.Tensor]): sample from dataset (contours)
+
+        Returns:
+            torch.Tensor: pitch loss
+        """
         # create the corresponding mask
         mask = self.__create_mask(x)
 
