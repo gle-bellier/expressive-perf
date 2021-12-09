@@ -8,7 +8,7 @@ class ConvBlock1D(nn.Module):
                  out_channels: int,
                  dilation: int,
                  norm=False,
-                 dropout=0.):
+                 dropout=0.) -> None:
         """Create 1D Convolutional block composed of a convolutional layer
         followed by batch normalization and leaky ReLU.
 
