@@ -32,13 +32,13 @@ if __name__ == '__main__':
     x = dataset[0]
     mask = create_mask(x)
 
-    e_f0, e_lo = dataset.inverse_transform(x[0])
+    e_f0, e_lo = dataset.inverse_transform(x[1])
     e_f0.unsqueeze_(-1)
     e_lo.unsqueeze_(-1)
     masked_e_f0 = mask * e_f0
     masked_e_lo = mask * e_lo
 
-    u_f0, u_lo = dataset.inverse_transform(x[1])
+    u_f0, u_lo = dataset.inverse_transform(x[0])
     u_f0.unsqueeze_(-1)
     u_lo.unsqueeze_(-1)
     masked_u_f0 = mask * u_f0
@@ -58,7 +58,9 @@ if __name__ == '__main__':
     # plt.plot(masked_u_lo - masked_e_lo)
     # plt.show()
 
-    diff = torch.abs(masked_e_f0 - masked_u_f0)
-    print((diff > .4).shape)
-    loss = torch.mean((diff > .4).float()) / torch.mean(mask)
+    mean_u_f0 = torch.mean(masked_u_f0, dim=0) / torch.mean(mask, dim=0)
+    mean_e_f0 = torch.mean(masked_e_f0, dim=0) / torch.mean(mask, dim=0)
+
+    diff = torch.abs(mean_u_f0 - mean_e_f0)
+    loss = torch.mean((diff > .4).float())
     print(loss)
