@@ -5,7 +5,7 @@ import torch.nn as nn
 class PitchLoss(nn.Module):
     def __init__(self, threshold: .5):
         """Pitch loss estimating how accurate are expressive pitch contours according to 
-        the unexpressive contours (the reference)
+        the unexpressive contours (the reference). Note to note mean frequency comparison. 
 
         Args:
             threshold (float): threshold above which the contours is considered off (in the midi norm, 0.5 is a quarter ton)
@@ -75,7 +75,7 @@ class PitchLoss(nn.Module):
 class PitchLossProp(nn.Module):
     def __init__(self, threshold: .5):
         """Pitch loss estimating how accurate are expressive pitch contours according to 
-        the unexpressive contours (the reference)
+        the unexpressive contours (the reference). Proportion of off points in each note pitch contour.
 
         Args:
             threshold (float): threshold above which the contours is considered off (in the midi norm, 0.5 is a quarter ton)
