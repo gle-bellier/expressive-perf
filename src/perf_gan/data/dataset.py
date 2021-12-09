@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, QuantileTransformer
-import pytorch_lightning as pl
 import pickle
 import numpy as np
 from random import randint
