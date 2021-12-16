@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class ConvBlock1D(nn.Module):
+class ConvBlock(nn.Module):
     def __init__(self,
                  in_channels: int,
                  out_channels: int,

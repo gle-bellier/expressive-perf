@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from perf_gan.models.conv_blocks_1d import ConvBlock1D
+from perf_gan.models.conv_blocks import ConvBlock1D
 
 
 def test_dims_conv1d():
