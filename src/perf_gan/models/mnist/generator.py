@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from perf_gan.models.conv_blocks_2d import ConvTblock, ConvBlock
+from perf_gan.models.mnist.conv_blocks_2d import ConvTblock, ConvBlock
 
 
 class Generator(nn.Module):

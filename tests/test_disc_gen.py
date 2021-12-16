@@ -1,8 +1,8 @@
 import torch
 
 from perf_gan.utils.init_weights import initialize_weights
-from perf_gan.models.generator import Generator
-from perf_gan.models.discriminator import Discriminator
+from perf_gan.models.mnist.generator import Generator
+from perf_gan.models.mnist.discriminator import Discriminator
 
 
 def test_gen_dims():
