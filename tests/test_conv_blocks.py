@@ -56,5 +56,4 @@ def test_downsampling_block():
     ))
 
     ublock = DBlock(in_channels, out_channels, dilation=dilation)
-    assert ublock(x)[0].shape == (batch_size, out_channels, length // 2)
-    assert ublock(x)[1].shape == (batch_size, out_channels, length)
+    assert ublock(x).shape == (batch_size, out_channels, length // 2)
