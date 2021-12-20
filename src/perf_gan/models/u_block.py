@@ -49,6 +49,4 @@ class UBlock(nn.Module):
         main = self.main(x)
         residual = self.residual(x)
 
-        print(f"main = {main.shape}, residual = {residual.shape}")
-
         return main + residual
