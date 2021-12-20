@@ -91,16 +91,3 @@ class Generator(nn.Module):
         out = self.up_sampling(x)
 
         return out
-
-
-if __name__ == '__main__':
-    down_channels = [2, 4, 8, 16]
-    down_dilations = [7, 5, 3, 3]
-
-    up_channels = [16, 8, 4, 2, 2]
-    up_dilations = [7, 5, 3, 3, 3]
-
-    g = Generator(down_channels, up_channels, down_dilations, up_dilations)
-
-    x = torch.randn(2, 2, 128)
-    g(x)
