@@ -22,17 +22,16 @@ class DBlock(nn.Module):
         self.conv2 = ConvBlock(out_channels, out_channels, dilation)
         self.mp = nn.MaxPool1d(kernel_size=2)
 
-    def forward(self, x: torch.Tensor) -> List[torch.Tensor]:
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Pass forward of the downsampling block
 
         Args:
             x (torch.Tensor): input tensor of size (B, in_C, L)
 
         Returns:
-            List[torch.Tensor]: output tensor and context, respectively of size (B, out_C, L//2), (B, out_C, L)
+            torch.Tensor: output tensor  of size (B, out_C, L//2)
         """
         x = self.conv1(x)
-        ctx = torch.clone(x)
         x = self.conv2(x)
         out = self.mp(x)
-        return out, ctx
+        return out
