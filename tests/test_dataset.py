@@ -39,7 +39,7 @@ def test_dataset_items():
         # loop over the 4 components (u contours, e contours, onsets, offsets)
         item = d[0]
         for idx in range(4):
-            assert len(item[idx]) == size
+            assert (item[idx].shape[-1]) == size
 
 
 def test_dataset_items_range():
