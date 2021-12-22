@@ -8,7 +8,7 @@ class DatasetCreator:
         """Synthetic Dataset constructor. It aims at mimicking violin pitch and loudness contours
 
         Args:
-            sr (int, optional): sampling rate. Defaults to 1600.
+            sr (int, optional): sampling rate. Defaults to 160.
         """
 
         # unexpressive contours:
@@ -153,5 +153,7 @@ class DatasetCreator:
 
 if __name__ == '__main__':
     d = DatasetCreator()
-    d.build(1000, 5)
+    print("Build dataset")
+    d.build(10000, 5)
+    print("Export dataset")
     d.export("data/", "dataset.pickle")
