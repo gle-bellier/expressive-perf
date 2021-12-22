@@ -2,3 +2,4 @@
 *.egg-info
 *.pickle
 *.ipynb
+/runs
