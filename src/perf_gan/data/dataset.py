@@ -151,13 +151,13 @@ class GANDataset(Dataset):
 
         # concatenate the contours into unexpressive/expressive tensors
         u_contours = torch.cat([
-            s_u_f0.unsqueeze(-1),
-            s_u_lo.unsqueeze(-1),
-        ], -1)
+            s_u_f0.unsqueeze(0),
+            s_u_lo.unsqueeze(0),
+        ], 0)
 
         e_contours = torch.cat([
-            s_e_f0.unsqueeze(-1),
-            s_e_lo.unsqueeze(-1),
-        ], -1)
+            s_e_f0.unsqueeze(0),
+            s_e_lo.unsqueeze(0),
+        ], 0)
 
         return [u_contours, e_contours, s_onsets, s_offsets]
