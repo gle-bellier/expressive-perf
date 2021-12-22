@@ -51,6 +51,16 @@ class Generator(nn.Module):
         self.bottleneck = Bottleneck(in_channels=down_channels[-1],
                                      out_channels=up_channels[0])
 
+        # initialize weights:
+        self.__initialize_weights()
+
+    def __initialize_weights(self) -> None:
+        """Initialize weights of the generator (help training)
+        """
+        for m in self.modules():
+            if isinstance(m, (nn.Conv1d, nn.ConvTranspose1d, nn.BatchNorm1d)):
+                nn.init.normal_(m.weight.data, 0.0, 0.02)
+
     def down_sampling(self, x: torch.Tensor) -> torch.Tensor:
         """Downsample the input (compute every outputs of the downsampling branch of the U-Net)
 

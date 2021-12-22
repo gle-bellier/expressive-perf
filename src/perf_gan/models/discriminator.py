@@ -31,6 +31,14 @@ class Discriminator(nn.Module):
             nn.Linear(in_features=in_features, out_features=out_features)
             for in_features, out_features in zip(h_dims[:-1], h_dims[1:])
         ])
+        self.__initialize_weights()
+
+    def __initialize_weights(self) -> None:
+        """Initialize weights of the discriminator (help training)
+        """
+        for m in self.modules():
+            if isinstance(m, (nn.Conv1d, nn.ConvTranspose1d, nn.BatchNorm1d)):
+                nn.init.normal_(m.weight.data, 0.0, 0.02)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute pass forward
