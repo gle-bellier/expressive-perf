@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch.utils.data import Dataset
 import pickle
 import numpy as np
+from typing import List, Union
 from random import randint
 
 
@@ -40,7 +41,7 @@ class GANDataset(Dataset):
 
         print("Dataset loaded.")
 
-    def __fit_transforms(self) -> list[object]:
+    def __fit_transforms(self) -> List[object]:
         """Fit the two transforms to the contours
 
         Returns:
@@ -94,7 +95,7 @@ class GANDataset(Dataset):
         out = scaler.transform(x.reshape(-1, 1)).squeeze(-1)
         return torch.from_numpy(out).float()
 
-    def inverse_transform(self, x: torch.Tensor) -> list[torch.Tensor]:
+    def inverse_transform(self, x: torch.Tensor) -> List[torch.Tensor]:
         """Inverse transform a vector (f0, lo)
 
         Args:
@@ -122,7 +123,7 @@ class GANDataset(Dataset):
         """
         return self.N // self.n_sample
 
-    def __getitem__(self, idx: int) -> list[torch.Tensor]:
+    def __getitem__(self, idx: int) -> List[torch.Tensor]:
         """Select the ith sample from the dataset
 
         Args:
