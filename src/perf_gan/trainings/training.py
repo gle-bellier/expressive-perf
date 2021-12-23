@@ -1,7 +1,6 @@
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-import torch
 from torch.utils.tensorboard import SummaryWriter
 
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
