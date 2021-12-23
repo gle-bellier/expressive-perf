@@ -102,13 +102,13 @@ def training(num_epochs: int, lr: float, beta1: float) -> None:
                 plt.plot(u_f0.squeeze().cpu().detach(), label="u_f0")
                 plt.plot(g_f0.squeeze().cpu().detach(), label="g_f0")
                 plt.legend()
-                writer.add_figure("pitch", plt.gcf(), i * epoch)
+                writer.add_figure("pitch", plt.gcf(), epoch)
 
                 plt.plot(u_lo.squeeze().cpu().detach(), label="u_lo")
                 plt.plot(g_lo.squeeze().cpu().detach(), label="g_lo")
                 plt.legend()
-                writer.add_figure("lo", plt.gcf(), i * epoch)
+                writer.add_figure("lo", plt.gcf(), epoch)
 
 
 if __name__ == "__main__":
-    training(num_epochs=90, lr=1e-4, beta1=0.5)
+    training(num_epochs=10000, lr=1e-4, beta1=0.5)
