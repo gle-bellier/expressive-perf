@@ -1,7 +1,11 @@
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
+import torch
+from torch.utils.tensorboard import SummaryWriter
+
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
+import matplotlib.pyplot as plt
 
 from perf_gan.models.generator import Generator
 from perf_gan.models.discriminator import Discriminator
@@ -9,6 +13,7 @@ from perf_gan.models.discriminator import Discriminator
 from perf_gan.data.dataset import GANDataset
 from perf_gan.losses.lsgan_loss import LSGAN_loss
 
+writer = SummaryWriter()
 device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
 print("Training of ", device)
 
@@ -49,8 +54,6 @@ def training(num_epochs: int, lr: float, beta1: float) -> None:
 
     for epoch in range(num_epochs):
         for i, contours in enumerate(data):
-            print(i)
-
             u_contours = contours[0].to(device)
             e_contours = contours[1].to(device)
 
@@ -88,6 +91,24 @@ def training(num_epochs: int, lr: float, beta1: float) -> None:
                        torch.mean(torch.Tensor(disc_losses[-n_mean:])),
                        torch.mean(torch.Tensor(gen_losses[-n_mean:]))))
 
+                writer.add_scalar("Loss/gen", gen_loss, epoch)
+                writer.add_scalar("Loss/disc", disc_loss, epoch)
+
+            if i == 0 and epoch % 20 == 0:
+
+                u_f0, u_lo = u_contours[0].split(1, 0)
+                g_f0, g_lo = fake_contours[0].split(1, 0)
+
+                plt.plot(u_f0.squeeze().cpu().detach(), label="u_f0")
+                plt.plot(g_f0.squeeze().cpu().detach(), label="g_f0")
+                plt.legend()
+                writer.add_figure("pitch", plt.gcf(), i * epoch)
+
+                plt.plot(u_lo.squeeze().cpu().detach(), label="u_lo")
+                plt.plot(g_lo.squeeze().cpu().detach(), label="g_lo")
+                plt.legend()
+                writer.add_figure("lo", plt.gcf(), i * epoch)
+
 
 if __name__ == "__main__":
-    training(num_epochs=2, lr=1e-4, beta1=0.5)
+    training(num_epochs=90, lr=1e-4, beta1=0.5)
