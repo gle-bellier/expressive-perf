@@ -17,6 +17,7 @@ from perf_gan.models.discriminator import Discriminator
 from perf_gan.data.dataset import GANDataset
 from perf_gan.losses.lsgan_loss import LSGAN_loss
 from perf_gan.losses.hinge_loss import Hinge_loss
+from perf_gan.losses.pitch_loss import PitchLoss
 
 
 class PerfGAN(pl.LightningModule):
@@ -107,6 +108,9 @@ class PerfGAN(pl.LightningModule):
             disc_gu = self.disc(fake_contours).view(-1)
             gen_loss = self.criteron.gen_loss(disc_e, disc_gu)
 
+            # add pitch loss
+            pitch_loss = PitchLoss
+
             self.log("gen_loss", gen_loss)
             tqdm_dict = {'d_loss': gen_loss}
             output = OrderedDict({
@@ -174,18 +178,18 @@ if __name__ == "__main__":
     dataset.transform()
     dataloader = DataLoader(dataset=dataset, batch_size=32, shuffle=True)
 
-    criteron = LSGAN_loss()
+    criteron = Hinge_loss()
 
     # init model
-    model = PerfGAN(g_down_channels=[2, 4],
-                    g_up_channels=[4, 4, 2],
-                    g_down_dilations=[1, 3],
-                    g_up_dilations=[3, 1, 1],
-                    d_conv_channels=[2, 4, 1],
-                    d_dilations=[1, 3, 3],
+    model = PerfGAN(g_down_channels=[2, 4, 8, 16],
+                    g_up_channels=[32, 16, 8, 4, 2],
+                    g_down_dilations=[1, 1, 3, 3],
+                    g_up_dilations=[3, 3, 1, 1, 1],
+                    d_conv_channels=[2, 32, 16, 1],
+                    d_dilations=[1, 1, 3],
                     d_h_dims=[1024, 32, 1],
                     criteron=criteron,
-                    lr=1e-4,
+                    lr=1e-3,
                     b1=0.999,
                     b2=0.999)
 
