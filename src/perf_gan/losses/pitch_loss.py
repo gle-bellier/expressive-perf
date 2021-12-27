@@ -18,7 +18,7 @@ class PitchLoss(nn.Module):
     def forward(self, gen_f0: List[torch.Tensor],
                 sample: List[torch.Tensor]) -> torch.Tensor:
         # create the corresponding mask
-        mask = self.__create_mask(sample).unsqueeze(0)
+        mask = self.__create_mask(sample)
 
         # get target f0
         t_f0, _ = sample[0].split(1, 1)
@@ -26,24 +26,20 @@ class PitchLoss(nn.Module):
         t_f0.squeeze_(1)
         gen_f0.squeeze_(1)
 
-        print("t_f0 : ", t_f0.shape)
-
-        print("gen_f0 : ", gen_f0.shape)
-
-        print("mask : ", mask.shape)
-
         # apply mask to the pitch contours
         mk_gen_f0 = mask * gen_f0
         mk_t_f0 = mask * t_f0
 
         # compute the mean frequency for both contours
-        mean_gen_f0 = torch.mean(mk_gen_f0, dim=0) / torch.mean(mask, dim=0)
-        mean_t_f0 = torch.mean(mk_t_f0, dim=0) / torch.mean(mask, dim=0)
+        mean_gen_f0 = torch.mean(mk_gen_f0,
+                                 dim=-1) / (torch.mean(mask, dim=-1) + 1e-6)
+        mean_t_f0 = torch.mean(mk_t_f0,
+                               dim=-1) / (torch.mean(mask, dim=-1) + 1e-6)
 
         # compute the difference between mean frequency and loss
         diff = torch.abs(mean_gen_f0 - mean_t_f0)
-        loss = torch.mean((diff > self.threshold).float())
 
+        loss = torch.mean(torch.relu(diff - self.threshold))
         return loss
 
     def __create_mask(self, x: List[torch.Tensor]) -> torch.Tensor:
@@ -93,4 +89,4 @@ class PitchLoss(nn.Module):
             masks[i] = torch.nn.functional.pad(
                 masks[i], (0, 0, 0, n_n_max - masks[i].shape[0]), value=0)
 
-        return torch.stack(masks, dim=0)
+        return torch.stack(masks, dim=1)
