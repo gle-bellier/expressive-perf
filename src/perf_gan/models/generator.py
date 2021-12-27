@@ -31,8 +31,8 @@ class Generator(nn.Module):
         self.up_channels_out = up_channels[1:]
         self.up_dilations = up_dilations
 
-        is_first = [True] + [False] * (len(self.down_channels_in) - 1)
-        is_last = [False] * (len(self.up_channels_in) - 1) + [True]
+        is_first = [False] * (len(self.down_channels_in))
+        is_last = [False] * (len(self.up_channels_in))  #+ [True]
 
         self.down_blocks = nn.ModuleList([
             DBlock(in_channels=in_channels,
@@ -104,4 +104,4 @@ class Generator(nn.Module):
         x = self.bottleneck(x)
         out = self.up_sampling(x)
 
-        return out
+        return torch.tanh(out)

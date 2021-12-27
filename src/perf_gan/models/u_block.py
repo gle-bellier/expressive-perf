@@ -23,43 +23,23 @@ class UBlock(nn.Module):
         if not last:
             self.main = nn.Sequential(
                 nn.Upsample(scale_factor=2),
-                nn.ConvTranspose1d(in_channels=in_channels,
-                                   out_channels=in_channels,
-                                   stride=1,
-                                   kernel_size=3,
-                                   padding=1),
                 ConvBlock(in_channels, out_channels, dilation=dilation),
                 ConvBlock(out_channels, out_channels, dilation=dilation))
 
             self.residual = nn.Sequential(
                 nn.Upsample(scale_factor=2),
-                nn.ConvTranspose1d(
+                ConvBlock(
                     in_channels=in_channels,
                     out_channels=out_channels,
-                    stride=1,
-                    kernel_size=2,
-                    dilation=2,
-                    padding=1,
+                    dilation=dilation,
                 ))
         else:
             self.main = nn.Sequential(
-                nn.ConvTranspose1d(in_channels=in_channels,
-                                   out_channels=in_channels,
-                                   stride=1,
-                                   kernel_size=3,
-                                   padding=1),
                 ConvBlock(in_channels, out_channels, dilation=dilation),
                 ConvBlock(out_channels, out_channels, dilation=dilation))
 
             self.residual = nn.Sequential(
-                nn.ConvTranspose1d(
-                    in_channels=in_channels,
-                    out_channels=out_channels,
-                    stride=1,
-                    kernel_size=2,
-                    dilation=2,
-                    padding=1,
-                ))
+                ConvBlock(in_channels, out_channels, dilation))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute pass forward for the Upsampling convolution block.
@@ -72,7 +52,4 @@ class UBlock(nn.Module):
         """
         main = self.main(x)
         residual = self.residual(x)
-        out = main + residual
-        if self.last:
-            out = torch.sigmoid(out)
-        return out
+        return main + residual

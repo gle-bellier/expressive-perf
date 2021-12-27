@@ -16,6 +16,7 @@ from perf_gan.models.discriminator import Discriminator
 
 from perf_gan.data.dataset import GANDataset
 from perf_gan.losses.lsgan_loss import LSGAN_loss
+from perf_gan.losses.hinge_loss import Hinge_loss
 
 
 class PerfGAN(pl.LightningModule):
@@ -124,20 +125,23 @@ class PerfGAN(pl.LightningModule):
         """
 
         self.val_idx += 1
-        if self.val_idx % 10000 == 0:
+        if self.val_idx % 100 == 0:
 
             u_contours, e_contours, _, _ = batch
             fake_contours = self.gen(u_contours)
 
             u_f0, u_lo = u_contours[0].split(1, 0)
+            e_f0, e_lo = e_contours[0].split(1, 0)
             g_f0, g_lo = fake_contours[0].split(1, 0)
 
             plt.plot(u_f0.squeeze().cpu().detach(), label="u_f0")
+            plt.plot(e_f0.squeeze().cpu().detach(), label="e_f0")
             plt.plot(g_f0.squeeze().cpu().detach(), label="g_f0")
             plt.legend()
             self.logger.experiment.add_figure("pitch", plt.gcf(), self.val_idx)
 
             plt.plot(u_lo.squeeze().cpu().detach(), label="u_lo")
+            plt.plot(e_lo.squeeze().cpu().detach(), label="e_lo")
             plt.plot(g_lo.squeeze().cpu().detach(), label="g_lo")
             plt.legend()
             self.logger.experiment.add_figure("lo", plt.gcf(), self.val_idx)
@@ -159,7 +163,11 @@ class PerfGAN(pl.LightningModule):
 
 if __name__ == "__main__":
     # get dataset
-    list_transforms = [(MinMaxScaler, {}), (MinMaxScaler, {})]
+    list_transforms = [(MinMaxScaler, {
+        "feature_range": (-1, 1)
+    }), (MinMaxScaler, {
+        "feature_range": (-1, 1)
+    })]
     dataset = GANDataset(path="data/dataset.pickle",
                          n_sample=1024,
                          list_transforms=list_transforms)
@@ -169,13 +177,13 @@ if __name__ == "__main__":
     criteron = LSGAN_loss()
 
     # init model
-    model = PerfGAN(g_down_channels=[2, 4, 8],
-                    g_up_channels=[16, 8, 4, 2],
-                    g_down_dilations=[3, 5, 5],
-                    g_up_dilations=[5, 5, 3, 3],
+    model = PerfGAN(g_down_channels=[2, 4],
+                    g_up_channels=[4, 4, 2],
+                    g_down_dilations=[1, 3],
+                    g_up_dilations=[3, 1, 1],
                     d_conv_channels=[2, 4, 1],
                     d_dilations=[1, 3, 3],
-                    d_h_dims=[1024, 32, 8, 1],
+                    d_h_dims=[1024, 32, 1],
                     criteron=criteron,
                     lr=1e-4,
                     b1=0.999,
