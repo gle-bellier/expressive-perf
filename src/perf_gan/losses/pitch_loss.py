@@ -1,5 +1,7 @@
 import torch
 import torch.nn as nn
+from typing import List
+from numba import jit
 
 
 class PitchLoss(nn.Module):
@@ -8,12 +10,13 @@ class PitchLoss(nn.Module):
         the unexpressive contours (the reference). Note to note mean frequency comparison. 
 
         Args:
-            threshold (float): threshold above which the contours is considered off (in the midi norm, 0.5 is a quarter ton)
+            threshold (float): threshold above which the contours is considered off (in the midi norm, 0.5 is a quarter tone)
         """
         super().__init(self)
         self.threshold = threshold
 
-    def forward(self, x: list[torch.Tensor]) -> torch.Tensor:
+    @jit(nopython=True)
+    def forward(self, x: List[torch.Tensor]) -> torch.Tensor:
         """Compute the pitch loss associate to a sample from dataset
 
         Args:
@@ -42,7 +45,8 @@ class PitchLoss(nn.Module):
 
         return loss
 
-    def __create_mask(x: list[torch.Tensor]) -> torch.Tensor:
+    @jit(nopython=True)
+    def __create_mask(x: List[torch.Tensor]) -> torch.Tensor:
         """Create a temporal mask according to notes onsets and offsets.
         Each column of the mask correspond to the temporal activation of a
         single note
@@ -83,7 +87,8 @@ class PitchLossProp(nn.Module):
         super().__init(self)
         self.threshold = threshold
 
-    def forward(self, x: list[torch.Tensor]) -> torch.Tensor:
+    @jit(nopython=True)
+    def forward(self, x: List[torch.Tensor]) -> torch.Tensor:
         """Compute the pitch loss associate to a sample from dataset. Loss computed as the proportion 
         of off pitch points for each note.
 
@@ -110,7 +115,8 @@ class PitchLossProp(nn.Module):
 
         return loss
 
-    def __create_mask(x: list[torch.Tensor]) -> torch.Tensor:
+    @jit(nopython=True)
+    def __create_mask(x: List[torch.Tensor]) -> torch.Tensor:
         """Create a temporal mask according to notes onsets and offsets.
         Each column of the mask correspond to the temporal activation of a
         single note
