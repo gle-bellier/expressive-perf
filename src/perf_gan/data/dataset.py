@@ -142,12 +142,12 @@ class GANDataset(Dataset):
         idx = min(idx, len(self) * self.n_sample - self.n_sample)
 
         # select the sample contours
-        s_u_f0 = self.u_f0[idx:idx + self.n_sample]
-        s_u_lo = self.u_lo[idx:idx + self.n_sample]
-        s_e_f0 = self.e_f0[idx:idx + self.n_sample]
-        s_e_lo = self.e_lo[idx:idx + self.n_sample]
-        s_onsets = self.onsets[idx:idx + self.n_sample]
-        s_offsets = self.offsets[idx:idx + self.n_sample]
+        s_u_f0 = torch.tensor(self.u_f0[idx:idx + self.n_sample])
+        s_u_lo = torch.tensor(self.u_lo[idx:idx + self.n_sample])
+        s_e_f0 = torch.tensor(self.e_f0[idx:idx + self.n_sample])
+        s_e_lo = torch.tensor(self.e_lo[idx:idx + self.n_sample])
+        s_onsets = torch.tensor(self.onsets[idx:idx + self.n_sample])
+        s_offsets = torch.tensor(self.offsets[idx:idx + self.n_sample])
 
         # concatenate the contours into unexpressive/expressive tensors
         u_contours = torch.cat([
