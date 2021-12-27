@@ -59,19 +59,38 @@ class PitchLoss(nn.Module):
             torch.Tensor: mask of size (len(onsets) x number of notes)
         """
         onsets, offsets = x[-2:]
+
+        nb_sample, l = onsets.shape
+
         masks = []
-        # initialize a mask
-        m = torch.ones_like(onsets)
-        print("Mask shape : ", m.shape)
-        for idx in range(len(onsets)):
-            if offsets[idx]:
-                m[idx:] -= 1
-                # add mask to the mask
-                masks += [m]
-                # reinitialize the mask
-                m = torch.ones_like(onsets)
 
-            if onsets[idx]:
-                m[:idx] -= 1
+        # we need to keep track of the max number of notes in a sample
+        n_n_max = 0
 
-        return torch.stack(masks).T
+        for i_sample in range(nb_sample):
+            mask_sample = []
+
+            #initialize current mask
+            m = torch.zeros((1, l))
+
+            for idx in range(l):
+                if offsets[i_sample][idx]:
+                    m[idx:] -= 1
+                    # add mask to the sample mask
+                    mask_sample += [m]
+                    # reinitialize the mask
+                    m = torch.zeros((1, l))
+
+                if onsets[i_sample][idx]:
+                    m[:idx] -= 1
+
+            # update if necessary the highest number of notes in a sample
+            n_n_max = max(n_n_max, len(mask_sample))
+            masks += [torch.vstack(mask_sample)]
+
+        # we need to pad the masks to the same size (n_n_max)
+        for i in range(len(masks)):
+            masks[i] = torch.nn.functional.pad(
+                masks[i], (0, 0, 0, n_n_max - masks[i].shape[0]), value=0)
+
+        return torch.stack(masks, dim=0)
