@@ -75,7 +75,43 @@ class PerfGAN(pl.LightningModule):
         return self.gen(x)
 
     def gen_step(self, batch: List[torch.Tensor]):
-        pass
+
+        u_contours, e_contours, onsets, offsets = batch
+
+        # generate new contours
+        gen_contours = self.gen(u_contours)
+
+        disc_e = self.disc(e_contours).view(-1)
+        disc_gu = self.disc(gen_contours).view(-1)
+
+        gen_loss = self.criteron.gen_loss(disc_e, disc_gu)
+
+        # apply inverse transform to compare pitches (midi range)
+        inv_u_f0, _ = self.dataset.inverse_transform(u_contours).split(1, 1)
+        inv_gen_f0, _ = self.dataset.inverse_transform(gen_contours).split(
+            1, 1)
+
+        # add pitch loss
+
+        pitch_loss_value = self.pitch_loss(inv_gen_f0, inv_u_f0, onsets,
+                                           offsets)
+
+        return gen_loss, pitch_loss_value
+
+    def disc_step(self, batch: List[torch.Tensor]):
+
+        u_contours, e_contours, onsets, offsets = batch
+
+        # generate new contours
+        gen_contours = self.gen(u_contours)
+
+        # discriminate
+        disc_e = self.disc(e_contours).view(-1)
+        disc_u = self.disc(gen_contours.detach()).view(-1)
+
+        disc_loss = self.criteron.disc_loss(disc_e, disc_u)
+
+        return disc_loss
 
     def training_step(self, batch: List[torch.Tensor], batch_idx: int,
                       optimizer_idx: int) -> OrderedDict:
@@ -90,15 +126,28 @@ class PerfGAN(pl.LightningModule):
         Returns:
             OrderedDict: dict {loss, progress_bar, log}
         """
-        u_contours, e_contours, onsets, offsets = batch
 
-        disc_e = self.disc(e_contours).view(-1)
-        gen_contours = self.gen(u_contours)
+        if optimizer_idx == 0:
+            # train generator
+            gen_loss, pitch_loss_value = self.gen_step(batch)
+            # compute extend gen loss
+            ext_gen_loss = gen_loss + pitch_loss_value
+
+            self.log("gen_loss", gen_loss)
+            self.log("gen_pitch_loss", pitch_loss_value)
+            self.log("ext_gen_loss", ext_gen_loss)
+
+            tqdm_dict = {'g_loss': ext_gen_loss}
+            output = OrderedDict({
+                'loss': gen_loss,
+                'progress_bar': tqdm_dict,
+                'log': tqdm_dict
+            })
+            return output
 
         if optimizer_idx == 1:
             # train discriminator
-            disc_u = self.disc(gen_contours.detach()).view(-1)
-            disc_loss = self.criteron.disc_loss(disc_e, disc_u)
+            disc_loss = self.disc_step(batch)
 
             self.log("disc_loss", disc_loss)
 
@@ -109,33 +158,6 @@ class PerfGAN(pl.LightningModule):
                 'log': tqdm_dict
             })
 
-            return output
-
-        if optimizer_idx == 0:
-            # train generator
-            disc_gu = self.disc(gen_contours).view(-1)
-            gen_loss = self.criteron.gen_loss(disc_e, disc_gu)
-
-            # apply inverse transform to compare pitches (midi range)
-            inv_u_f0, _ = dataset.inverse_transform(u_contours).split(1, 1)
-            inv_gen_f0, _ = dataset.inverse_transform(gen_contours).split(1, 1)
-
-            # add pitch loss
-
-            pitch_loss_value = self.pitch_loss(inv_gen_f0, inv_u_f0, onsets,
-                                               offsets)
-
-            self.log("gen_loss", gen_loss)
-            self.log("gen_pitch_loss", pitch_loss_value)
-
-            gen_loss += pitch_loss_value
-
-            tqdm_dict = {'g_loss': gen_loss}
-            output = OrderedDict({
-                'loss': gen_loss,
-                'progress_bar': tqdm_dict,
-                'log': tqdm_dict
-            })
             return output
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
