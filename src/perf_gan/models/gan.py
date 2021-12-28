@@ -58,6 +58,7 @@ class PerfGAN(pl.LightningModule):
 
         self.criteron = criteron
         self.dataset = None
+        self.pitch_loss = PitchLoss().cuda()
 
         self.val_idx = 0
 
@@ -112,17 +113,21 @@ class PerfGAN(pl.LightningModule):
             disc_gu = self.disc(gen_contours).view(-1)
             gen_loss = self.criteron.gen_loss(disc_e, disc_gu)
 
-            # # add pitch loss
-            # pitch_loss = PitchLoss()
+            # apply inverse transform to compare pitches (midi range)
+            inv_u_f0, _ = dataset.inverse_transform(u_contours).split(1, 1)
+            inv_gen_f0, _ = dataset.inverse_transform(gen_contours).split(1, 1)
 
-            # # apply inverse transform to compare pitches (midi range)
-            # inv_u_f0, _ = dataset.inverse_transform(u_contours).split(1, 1)
-            # inv_gen_f0, _ = dataset.inverse_transform(gen_contours).split(1, 1)
+            # add pitch loss
 
-            # gen_pitch_loss = pitch_loss(inv_gen_f0, inv_u_f0, onsets, offsets)
+            pitch_loss_value = self.pitch_loss(inv_gen_f0, inv_u_f0, onsets,
+                                               offsets)
+
+            pitch_loss_value = 0
 
             self.log("gen_loss", gen_loss)
-            # self.log("gen_pitch_loss", gen_pitch_loss)
+            self.log("gen_pitch_loss", pitch_loss_value)
+
+            gen_loss += pitch_loss_value
 
             tqdm_dict = {'g_loss': gen_loss}
             output = OrderedDict({
@@ -188,7 +193,10 @@ if __name__ == "__main__":
     dataset = GANDataset(path="data/dataset.pickle",
                          n_sample=1024,
                          list_transforms=list_transforms)
-    dataloader = DataLoader(dataset=dataset, batch_size=32, shuffle=True)
+    dataloader = DataLoader(dataset=dataset,
+                            batch_size=16,
+                            shuffle=True,
+                            num_workers=8)
 
     criteron = Hinge_loss()
     # init model

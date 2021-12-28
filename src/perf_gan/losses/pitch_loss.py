@@ -19,14 +19,11 @@ class PitchLoss(nn.Module):
 
     def forward(self, gen_f0, t_f0, onsets, offsets) -> torch.Tensor:
         # create the corresponding mask
-        mask = self.__create_mask(onsets, offsets)
-
-        t_f0.squeeze_(1)
-        gen_f0.squeeze_(1)
+        mask = self.__create_mask(onsets, offsets).cuda()
 
         # apply mask to the pitch contours
-        mk_gen_f0 = mask * gen_f0
-        mk_t_f0 = mask * t_f0
+        mk_gen_f0 = mask * gen_f0.squeeze(1)
+        mk_t_f0 = mask * t_f0.squeeze(1)
 
         # compute the mean frequency for both contours
         mean_gen_f0 = torch.mean(mk_gen_f0,

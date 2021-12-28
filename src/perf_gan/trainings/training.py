@@ -3,14 +3,16 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import matplotlib.pyplot as plt
+
+from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
 
 from perf_gan.models.generator import Generator
 from perf_gan.models.discriminator import Discriminator
 
 from perf_gan.data.dataset import GANDataset
 from perf_gan.losses.lsgan_loss import LSGAN_loss
+from perf_gan.losses.hinge_loss import Hinge_loss
 
 writer = SummaryWriter()
 device = torch.device("cuda:0" if (torch.cuda.is_available()) else "cpu")
@@ -20,11 +22,14 @@ print("Training of ", device)
 batch_size = 32
 
 # get dataset
-list_transforms = [(MinMaxScaler, {}), (MinMaxScaler, {})]
+list_transforms = [(PitchTransform, {
+    "feature_range": (-1, 1)
+}), (LoudnessTransform, {
+    "feature_range": (-1, 1)
+})]
 dataset = GANDataset(path="data/dataset.pickle",
                      n_sample=1024,
                      list_transforms=list_transforms)
-dataset.transform()
 
 data = DataLoader(dataset=dataset, batch_size=32, shuffle=True)
 
