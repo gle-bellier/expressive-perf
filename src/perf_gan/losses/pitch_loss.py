@@ -17,13 +17,9 @@ class PitchLoss(nn.Module):
 
     jit(nopython=False)
 
-    def forward(self, gen_f0: List[torch.Tensor],
-                sample: List[torch.Tensor]) -> torch.Tensor:
+    def forward(self, gen_f0, t_f0, onsets, offsets) -> torch.Tensor:
         # create the corresponding mask
-        mask = self.__create_mask(sample)
-
-        # get target f0
-        t_f0, _ = sample[0].split(1, 1)
+        mask = self.__create_mask(onsets, offsets)
 
         t_f0.squeeze_(1)
         gen_f0.squeeze_(1)
@@ -46,7 +42,7 @@ class PitchLoss(nn.Module):
 
     jit(nopython=False)
 
-    def __create_mask(self, x: List[torch.Tensor]) -> torch.Tensor:
+    def __create_mask(self, onsets, offsets) -> torch.Tensor:
         """Create a temporal mask according to notes onsets and offsets.
         Each column of the mask correspond to the temporal activation of a
         single note
@@ -58,7 +54,6 @@ class PitchLoss(nn.Module):
         Returns:
             torch.Tensor: mask of size (len(onsets) x number of notes)
         """
-        onsets, offsets = x[-2:]
 
         nb_sample, l = onsets.shape
 

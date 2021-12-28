@@ -26,10 +26,11 @@ def test_pitch_loss(shift: float, expected: float) -> None:
 
     sample = next(iter(dataloader))
 
-    u_contours, _, _, _ = sample
+    u_contours, e_contours, onsets, offsets = sample
 
-    # we suppose we generate same contours as MIDI
-    gen_f0, _ = u_contours.split(1, 1)
+    # we suppose we generate same contours as MIDI + shift
+    u_f0, _ = u_contours.split(1, 1)
+    gen_f0 = u_f0 + shift
 
     pitch_loss = PitchLoss()
-    assert pitch_loss(gen_f0 + shift, sample) >= expected
+    assert pitch_loss(gen_f0, u_f0, onsets, offsets) >= expected
