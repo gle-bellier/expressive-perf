@@ -26,7 +26,7 @@ class PerfGAN(pl.LightningModule):
                  g_down_dilations: List[int], g_up_dilations: List[int],
                  d_conv_channels: List[int], d_dilations: List[int],
                  d_h_dims: List[int], criteron: float, lr: float, b1: int,
-                 b2: int, scalers):
+                 b2: int):
         """[summary]
 
         Args:
@@ -41,7 +41,7 @@ class PerfGAN(pl.LightningModule):
             lr (float): learning rate
             b1 (int): b1 factor 
             b2 (int): b2 factor
-            scalers: dataset scalers [pitch scaler, loudness scaler]
+
         """
         super(PerfGAN, self).__init__()
 
@@ -57,7 +57,7 @@ class PerfGAN(pl.LightningModule):
                                   h_dims=d_h_dims)
 
         self.criteron = criteron
-        self.scalers = scalers
+        self.dataset = None
 
         self.val_idx = 0
 
@@ -73,27 +73,6 @@ class PerfGAN(pl.LightningModule):
         """
         return self.gen(x)
 
-    def __inverse_transform(self, x: torch.Tensor) -> List[torch.Tensor]:
-        """Compute inverse transform for a contours (pitch and loudness) according
-        to the model scalers
-
-        Args:
-            x (torch.Tensor): contours to transform 
-
-        Returns:
-            List[torch.Tensor]: transformed contours [pitch, loudness]
-        """
-
-        f0, lo = torch.split(x, 1, -1)
-        f0 = f0.reshape(-1, 1).cpu().numpy()
-        lo = lo.reshape(-1, 1).cpu().numpy()
-
-        # Inverse transforms
-        f0 = self.scalers[0].inverse_transform(f0).reshape(-1)
-        lo = self.scalers[1].inverse_transform(lo).reshape(-1)
-
-        return [torch.Tensor(f0), torch.Tensor(lo)]
-
     def training_step(self, batch: torch.Tensor, batch_idx: int,
                       optimizer_idx: int) -> OrderedDict:
         """Compute a training step for generator or discriminator 
@@ -107,14 +86,14 @@ class PerfGAN(pl.LightningModule):
         Returns:
             OrderedDict: dict {loss, progress_bar, log}
         """
-        u_contours, e_contours, _, _ = batch
+        u_contours, e_contours, onsets, offsets = batch
 
         disc_e = self.disc(e_contours).view(-1)
-        fake_contours = self.gen(u_contours)
+        gen_contours = self.gen(u_contours)
 
         if optimizer_idx == 1:
             # train discriminator
-            disc_u = self.disc(fake_contours.detach()).view(-1)
+            disc_u = self.disc(gen_contours.detach()).view(-1)
             disc_loss = self.criteron.disc_loss(disc_e, disc_u)
 
             self.log("disc_loss", disc_loss)
@@ -130,14 +109,22 @@ class PerfGAN(pl.LightningModule):
 
         if optimizer_idx == 0:
             # train generator
-            disc_gu = self.disc(fake_contours).view(-1)
+            disc_gu = self.disc(gen_contours).view(-1)
             gen_loss = self.criteron.gen_loss(disc_e, disc_gu)
 
-            # add pitch loss
-            pitch_loss = PitchLoss
+            # # add pitch loss
+            # pitch_loss = PitchLoss()
+
+            # # apply inverse transform to compare pitches (midi range)
+            # inv_u_f0, _ = dataset.inverse_transform(u_contours).split(1, 1)
+            # inv_gen_f0, _ = dataset.inverse_transform(gen_contours).split(1, 1)
+
+            # gen_pitch_loss = pitch_loss(inv_gen_f0, inv_u_f0, onsets, offsets)
 
             self.log("gen_loss", gen_loss)
-            tqdm_dict = {'d_loss': gen_loss}
+            # self.log("gen_pitch_loss", gen_pitch_loss)
+
+            tqdm_dict = {'g_loss': gen_loss}
             output = OrderedDict({
                 'loss': gen_loss,
                 'progress_bar': tqdm_dict,
@@ -152,7 +139,6 @@ class PerfGAN(pl.LightningModule):
             batch (torch.Tensor): batch composed of (u_contours, e_contours, onsets, offsets)
             batch_idx (int): batch index
         """
-
         self.val_idx += 1
         if self.val_idx % 100 == 0:
 
@@ -181,12 +167,14 @@ class PerfGAN(pl.LightningModule):
         Returns:
             Tuple(list): (list of optimizers, empty list) 
         """
+
         lr = self.hparams.lr
         b1 = self.hparams.b1
         b2 = self.hparams.b2
 
         opt_g = torch.optim.Adam(self.gen.parameters(), lr=lr, betas=(b1, b2))
         opt_d = torch.optim.Adam(self.disc.parameters(), lr=lr, betas=(b1, b2))
+
         return [opt_g, opt_d], []
 
 
@@ -200,11 +188,9 @@ if __name__ == "__main__":
     dataset = GANDataset(path="data/dataset.pickle",
                          n_sample=1024,
                          list_transforms=list_transforms)
-    dataset.transform()
     dataloader = DataLoader(dataset=dataset, batch_size=32, shuffle=True)
 
     criteron = Hinge_loss()
-
     # init model
     model = PerfGAN(g_down_channels=[2, 4, 8, 16],
                     g_up_channels=[32, 16, 8, 4, 2],
@@ -217,6 +203,8 @@ if __name__ == "__main__":
                     lr=1e-3,
                     b1=0.999,
                     b2=0.999)
+
+    model.dataset = dataset
 
     tb_logger = pl_loggers.TensorBoardLogger('runs/')
     trainer = pl.Trainer(gpus=1, max_epochs=1000, logger=tb_logger)
