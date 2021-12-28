@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 
 
-class Identity(nn.Module):
+class Identity:
     def __init__(self):
         pass
 
@@ -16,7 +16,7 @@ class Identity(nn.Module):
         return X
 
 
-class PitchTransform(nn.Module):
+class PitchTransform:
     def __init__(self, feature_range=(0, 1)):
         self.m = None
         self.M = None
@@ -36,7 +36,7 @@ class PitchTransform(nn.Module):
                 (self.new_M - self.new_m)) * (self.M - self.m) + self.m
 
 
-class LoudnessTransform(nn.Module):
+class LoudnessTransform:
     def __init__(self, feature_range=(0, 1)):
         self.m = None
         self.M = None
