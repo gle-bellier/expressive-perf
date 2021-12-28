@@ -15,6 +15,8 @@ class PitchLoss(nn.Module):
         super(PitchLoss, self).__init__()
         self.threshold = threshold
 
+    jit(nopython=False)
+
     def forward(self, gen_f0: List[torch.Tensor],
                 sample: List[torch.Tensor]) -> torch.Tensor:
         # create the corresponding mask
@@ -41,6 +43,8 @@ class PitchLoss(nn.Module):
 
         loss = torch.mean(torch.relu(diff - self.threshold))
         return loss
+
+    jit(nopython=False)
 
     def __create_mask(self, x: List[torch.Tensor]) -> torch.Tensor:
         """Create a temporal mask according to notes onsets and offsets.

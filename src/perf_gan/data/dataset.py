@@ -6,6 +6,8 @@ import numpy as np
 from typing import List, Union
 from random import randint
 
+from perf_gan.data.preprocess import Identity
+
 
 class GANDataset(Dataset):
     def __init__(self,
@@ -26,17 +28,24 @@ class GANDataset(Dataset):
         with open(path, "rb") as dataset:
             dataset = pickle.load(dataset)
 
-        self.u_f0 = dataset["u_f0"]
-        self.e_f0 = dataset["e_f0"]
-        self.u_lo = dataset["u_lo"]
-        self.e_lo = dataset["e_lo"]
-        self.onsets = dataset["onsets"]
-        self.offsets = dataset["offsets"]
+        self.u_f0 = torch.Tensor(dataset["u_f0"])
+        self.e_f0 = torch.Tensor(dataset["e_f0"])
+        self.u_lo = torch.Tensor(dataset["u_lo"])
+        self.e_lo = torch.Tensor(dataset["e_lo"])
+        self.onsets = torch.Tensor(dataset["onsets"])
+        self.offsets = torch.Tensor(dataset["offsets"])
 
         self.N = len(dataset["u_f0"])
         self.n_sample = n_sample
-        self.list_transforms = list_transforms
-        self.scalers = None
+
+        # add transformations applied to data
+        if list_transforms is None:
+            self.list_transforms = [(Identity, {}), (Identity, {})]
+        else:
+            self.list_transforms = list_transforms
+
+        # build scalers
+        self.scalers = self.__fit_transforms()
         self.eval = eval
 
         print("Dataset loaded.")
@@ -50,70 +59,52 @@ class GANDataset(Dataset):
         scalers = []
 
         # pitch
-        contour = np.concatenate((self.u_f0, self.e_f0))
+        contour = torch.cat((self.u_f0, self.e_f0), -1)
         transform = self.list_transforms[0]
-        sc = transform[0](**transform[1]).fit(contour.reshape(-1, 1))
+        sc = transform[0](**transform[1]).fit(contour)
         scalers.append(sc)
 
         # loudness
-        contour = np.concatenate((self.u_lo, self.e_lo))
+        contour = torch.cat((self.u_lo, self.e_lo), -1)
         transform = self.list_transforms[1]
-        sc = transform[0](**transform[1]).fit(contour.reshape(-1, 1))
+        sc = transform[0](**transform[1]).fit(contour)
         scalers.append(sc)
 
         return scalers
 
-    def transform(self) -> None:
-        """Transform the dataset contours according to the scalers
-        """
-
-        # fit transforms to contours
-        self.scalers = self.__fit_transforms()
-
-        # convert onsets and offsets to torch arrays
-        self.onsets = torch.from_numpy(self.onsets).float()
-        self.offsets = torch.from_numpy(self.offsets).float()
-
-        # apply transforms to pitch and loudness contours
-
-        self.u_f0 = self.__apply_transform(self.u_f0, self.scalers[0])
-        self.e_f0 = self.__apply_transform(self.e_f0, self.scalers[0])
-        self.u_lo = self.__apply_transform(self.u_lo, self.scalers[1])
-        self.e_lo = self.__apply_transform(self.e_lo, self.scalers[1])
-
-    def __apply_transform(self, x: np.ndarray, scaler: object) -> torch.Tensor:
-        """Transform a contours according to a given scaler
+    def transform(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply transformations to the contour x (pitch and loudness)
 
         Args:
-            x (np.ndarray): contours to be scaled
-            scaler (object): fitted scaler
+            x (torch.Tensor): input contour
 
         Returns:
-            torch.Tensor: fitted contours
+            torch.Tensor: transformed contour
         """
 
-        out = scaler.transform(x.reshape(-1, 1)).squeeze(-1)
-        return torch.from_numpy(out).float()
-
-    def inverse_transform(self, x: torch.Tensor) -> List[torch.Tensor]:
-        """Inverse transform a vector (f0, lo)
-
-        Args:
-            x (torch.Tensor): contours vector
-
-        Returns:
-            list[np.ndarray]: [f0, lo] inverse transformed
-        """
-
-        f0, lo = torch.split(x, 1, -1)
-        f0 = f0.reshape(-1, 1).cpu().numpy()
-        lo = lo.reshape(-1, 1).cpu().numpy()
-
+        f0, lo = torch.split(x, 1, -2)
         # Inverse transforms
-        f0 = self.scalers[0].inverse_transform(f0).reshape(-1)
-        lo = self.scalers[1].inverse_transform(lo).reshape(-1)
+        f0 = self.scalers[0].transform(f0)
+        lo = self.scalers[1].transform(lo)
 
-        return [torch.Tensor(f0), torch.Tensor(lo)]
+        return torch.cat([f0, lo], -2)
+
+    def inverse_transform(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply inverse transformations to the contour x (pitch and loudness)
+
+        Args:
+            x (torch.Tensor): input contour
+
+        Returns:
+            torch.Tensor: inverse transformed contour
+        """
+
+        f0, lo = torch.split(x, 1, -2)
+        # Inverse transforms
+        f0 = self.scalers[0].inverse_transform(f0)
+        lo = self.scalers[1].inverse_transform(lo)
+
+        return torch.cat([f0, lo], -2)
 
     def __len__(self) -> int:
         """Compute the number of samples in the dataset
@@ -142,12 +133,12 @@ class GANDataset(Dataset):
         idx = min(idx, len(self) * self.n_sample - self.n_sample)
 
         # select the sample contours
-        s_u_f0 = torch.tensor(self.u_f0[idx:idx + self.n_sample])
-        s_u_lo = torch.tensor(self.u_lo[idx:idx + self.n_sample])
-        s_e_f0 = torch.tensor(self.e_f0[idx:idx + self.n_sample])
-        s_e_lo = torch.tensor(self.e_lo[idx:idx + self.n_sample])
-        s_onsets = torch.tensor(self.onsets[idx:idx + self.n_sample])
-        s_offsets = torch.tensor(self.offsets[idx:idx + self.n_sample])
+        s_u_f0 = self.u_f0[idx:idx + self.n_sample]
+        s_u_lo = self.u_lo[idx:idx + self.n_sample]
+        s_e_f0 = self.e_f0[idx:idx + self.n_sample]
+        s_e_lo = self.e_lo[idx:idx + self.n_sample]
+        s_onsets = self.onsets[idx:idx + self.n_sample]
+        s_offsets = self.offsets[idx:idx + self.n_sample]
 
         # concatenate the contours into unexpressive/expressive tensors
         u_contours = torch.cat([
@@ -160,4 +151,7 @@ class GANDataset(Dataset):
             s_e_lo.unsqueeze(0),
         ], 0)
 
-        return [u_contours, e_contours, s_onsets, s_offsets]
+        return [
+            self.transform(u_contours),
+            self.transform(e_contours), s_onsets, s_offsets
+        ]

@@ -6,7 +6,6 @@ from torch.utils.tensorboard import SummaryWriter
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
 
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 from typing import List, Tuple
@@ -15,6 +14,8 @@ from perf_gan.models.generator import Generator
 from perf_gan.models.discriminator import Discriminator
 
 from perf_gan.data.dataset import GANDataset
+from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
+
 from perf_gan.losses.lsgan_loss import LSGAN_loss
 from perf_gan.losses.hinge_loss import Hinge_loss
 from perf_gan.losses.pitch_loss import PitchLoss
@@ -25,7 +26,7 @@ class PerfGAN(pl.LightningModule):
                  g_down_dilations: List[int], g_up_dilations: List[int],
                  d_conv_channels: List[int], d_dilations: List[int],
                  d_h_dims: List[int], criteron: float, lr: float, b1: int,
-                 b2: int):
+                 b2: int, scalers):
         """[summary]
 
         Args:
@@ -40,6 +41,7 @@ class PerfGAN(pl.LightningModule):
             lr (float): learning rate
             b1 (int): b1 factor 
             b2 (int): b2 factor
+            scalers: dataset scalers [pitch scaler, loudness scaler]
         """
         super(PerfGAN, self).__init__()
 
@@ -55,6 +57,8 @@ class PerfGAN(pl.LightningModule):
                                   h_dims=d_h_dims)
 
         self.criteron = criteron
+        self.scalers = scalers
+
         self.val_idx = 0
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -68,6 +72,27 @@ class PerfGAN(pl.LightningModule):
             torch.Tensor: generated expressive contours (B, C, L)
         """
         return self.gen(x)
+
+    def __inverse_transform(self, x: torch.Tensor) -> List[torch.Tensor]:
+        """Compute inverse transform for a contours (pitch and loudness) according
+        to the model scalers
+
+        Args:
+            x (torch.Tensor): contours to transform 
+
+        Returns:
+            List[torch.Tensor]: transformed contours [pitch, loudness]
+        """
+
+        f0, lo = torch.split(x, 1, -1)
+        f0 = f0.reshape(-1, 1).cpu().numpy()
+        lo = lo.reshape(-1, 1).cpu().numpy()
+
+        # Inverse transforms
+        f0 = self.scalers[0].inverse_transform(f0).reshape(-1)
+        lo = self.scalers[1].inverse_transform(lo).reshape(-1)
+
+        return [torch.Tensor(f0), torch.Tensor(lo)]
 
     def training_step(self, batch: torch.Tensor, batch_idx: int,
                       optimizer_idx: int) -> OrderedDict:
@@ -167,9 +192,9 @@ class PerfGAN(pl.LightningModule):
 
 if __name__ == "__main__":
     # get dataset
-    list_transforms = [(MinMaxScaler, {
+    list_transforms = [(PitchTransform, {
         "feature_range": (-1, 1)
-    }), (MinMaxScaler, {
+    }), (LoudnessTransform, {
         "feature_range": (-1, 1)
     })]
     dataset = GANDataset(path="data/dataset.pickle",

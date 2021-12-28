@@ -1,9 +1,10 @@
 import pytest
 import torch
 import numpy as np
-from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 from perf_gan.data.make_dataset import DatasetCreator
+
+from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
 from perf_gan.data.dataset import GANDataset
 
 
@@ -30,12 +31,15 @@ def test_dataset_creation(sr: int, n: int, duration: int):
 def test_dataset_items():
     """Test size of dataset items
     """
-    l = [(StandardScaler, {}), (MinMaxScaler, {})]
+    l = [(PitchTransform, {
+        "feature_range": (-1, 1)
+    }), (LoudnessTransform, {
+        "feature_range": (-1, 1)
+    })]
     for size in [2048, 1024, 512]:
         d = GANDataset(path="data/dataset.pickle",
                        n_sample=size,
                        list_transforms=l)
-        d.transform()
         # loop over the 4 components (u contours, e contours, onsets, offsets)
         item = d[0]
         for idx in range(4):
@@ -45,10 +49,38 @@ def test_dataset_items():
 def test_dataset_items_range():
     """Test size of dataset items ranges
     """
-    l = [(StandardScaler, {}), (MinMaxScaler, {})]
+    l = [(PitchTransform, {
+        "feature_range": (-1, 1)
+    }), (LoudnessTransform, {
+        "feature_range": (-1, 1)
+    })]
     d = GANDataset(path="data/dataset.pickle",
                    n_sample=1024,
                    list_transforms=l)
-    d.transform()
-    # loop over the 4 components (u contours, e contours, onsets, offsets)
-    assert torch.min(d.e_lo) == 0 and torch.max(d.e_lo) == 1
+
+    e_lo = d[0][1][1]
+    assert torch.min(e_lo) >= -1 and torch.max(e_lo) <= 1
+
+
+def test_dataset_inv_transform():
+    """Test inverse transforms (with the 50 first samples)
+    """
+
+    l = [(PitchTransform, {
+        "feature_range": (-1, 1)
+    }), (LoudnessTransform, {
+        "feature_range": (-1, 1)
+    })]
+    d = GANDataset(path="data/dataset.pickle",
+                   n_sample=1024,
+                   list_transforms=l)
+
+    id = GANDataset(path="data/dataset.pickle", n_sample=1024)
+
+    n = 0
+    for i in range(50):
+        contour = id[i][0]
+        t_contour = d.transform(contour)
+        i_contour = d.inverse_transform(t_contour)
+        n += torch.allclose(contour, i_contour)
+    assert n == 50

@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
     "shift, expected",
     [
         (0, 0),
-        (.8, .8),
+        (1, 0.1),
     ],
 )
 def test_pitch_loss(shift: float, expected: float) -> None:
