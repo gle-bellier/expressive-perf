@@ -45,8 +45,7 @@ class LoudnessTransform:
     def fit(self, X):
         self.m = torch.min(X)
         self.M = torch.max(X)
-        print(self.m)
-        print(self.M)
+
         return self
 
     def transform(self, X, y=None):
