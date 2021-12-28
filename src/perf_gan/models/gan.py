@@ -74,13 +74,16 @@ class PerfGAN(pl.LightningModule):
         """
         return self.gen(x)
 
-    def training_step(self, batch: torch.Tensor, batch_idx: int,
+    def gen_step(self, batch: List[torch.Tensor]):
+        pass
+
+    def training_step(self, batch: List[torch.Tensor], batch_idx: int,
                       optimizer_idx: int) -> OrderedDict:
         """Compute a training step for generator or discriminator 
         (according to optimizer index)
 
         Args:
-            batch (torch.Tensor): batch composed of (u_contours, e_contours, onsets, offsets)
+            batch (List[torch.Tensor]): batch composed of (u_contours, e_contours, onsets, offsets)
             batch_idx (int): batch index
             optimizer_idx (int): optimizer index (0 for generator, 1 for discriminator)
 
@@ -121,8 +124,6 @@ class PerfGAN(pl.LightningModule):
 
             pitch_loss_value = self.pitch_loss(inv_gen_f0, inv_u_f0, onsets,
                                                offsets)
-
-            pitch_loss_value = 0
 
             self.log("gen_loss", gen_loss)
             self.log("gen_pitch_loss", pitch_loss_value)
@@ -209,7 +210,7 @@ if __name__ == "__main__":
                     d_h_dims=[1024, 32, 1],
                     criteron=criteron,
                     lr=1e-3,
-                    b1=0.999,
+                    b1=0.5,
                     b2=0.999)
 
     model.dataset = dataset
