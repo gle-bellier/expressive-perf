@@ -53,4 +53,4 @@ class Discriminator(nn.Module):
             x = conv(x)
         for l in self.linears:
             x = l(x)
-        return torch.sigmoid(x)
+        return x
