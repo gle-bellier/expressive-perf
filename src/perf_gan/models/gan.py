@@ -18,7 +18,7 @@ from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
 
 from perf_gan.losses.lsgan_loss import LSGAN_loss
 from perf_gan.losses.hinge_loss import Hinge_loss
-from perf_gan.losses.pitch_loss import PitchLoss
+from perf_gan.losses.midi_loss import Midi_loss
 
 
 class PerfGAN(pl.LightningModule):
@@ -58,7 +58,7 @@ class PerfGAN(pl.LightningModule):
 
         self.criteron = criteron
         self.dataset = None
-        self.pitch_loss = PitchLoss().cuda()
+        self.pitch_loss = Midi_loss().cuda()
 
         self.val_idx = 0
 
@@ -86,17 +86,18 @@ class PerfGAN(pl.LightningModule):
 
         gen_loss = self.criteron.gen_loss(disc_e, disc_gu)
 
-        # apply inverse transform to compare pitches (midi range)
-        inv_u_f0, _ = self.dataset.inverse_transform(u_contours).split(1, 1)
-        inv_gen_f0, _ = self.dataset.inverse_transform(gen_contours).split(
+        # apply inverse transform to compare pitches (midi range) and loudness (midi range)
+        inv_u_f0, inv_u_lo = self.dataset.inverse_transform(u_contours).split(
             1, 1)
+        inv_gen_f0, inv_gen_lo = self.dataset.inverse_transform(
+            gen_contours).split(1, 1)
 
         # add pitch loss
 
-        pitch_loss_value = self.pitch_loss(inv_gen_f0, inv_u_f0, onsets,
-                                           offsets)
+        pitch_loss, lo_loss = self.midi_loss(inv_gen_f0, inv_u_f0, inv_gen_lo,
+                                             inv_u_lo, onsets, offsets)
 
-        return gen_loss, pitch_loss_value
+        return gen_loss, pitch_loss, lo_loss
 
     def disc_step(self, batch: List[torch.Tensor]):
 
@@ -129,12 +130,13 @@ class PerfGAN(pl.LightningModule):
 
         if optimizer_idx == 0:
             # train generator
-            gen_loss, pitch_loss_value = self.gen_step(batch)
+            gen_loss, pitch_loss, lo_loss = self.gen_step(batch)
             # compute extend gen loss
-            ext_gen_loss = gen_loss + pitch_loss_value
+            ext_gen_loss = gen_loss + pitch_loss + lo_loss
 
             self.log("gen_loss", gen_loss)
-            self.log("gen_pitch_loss", pitch_loss_value)
+            self.log("gen_pitch_loss", pitch_loss)
+            self.log("gen_lo_loss", lo_loss)
             self.log("ext_gen_loss", ext_gen_loss)
 
             tqdm_dict = {'g_loss': ext_gen_loss}

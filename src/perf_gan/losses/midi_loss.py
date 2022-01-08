@@ -4,7 +4,7 @@ from typing import List
 from numba import jit
 
 
-class MidiLoss(nn.Module):
+class Midi_loss(nn.Module):
     def __init__(self, f0_threshold=.5, lo_threshold=.5):
         """Pitch loss estimating how accurate are expressive pitch contours according to 
         the unexpressive contours (the reference). Note to note mean frequency comparison. 
@@ -12,7 +12,7 @@ class MidiLoss(nn.Module):
         Args:
             threshold (float): threshold above which the contours is considered off (in the midi norm, 0.5 is a quarter tone)
         """
-        super(MidiLoss, self).__init__()
+        super(Midi_loss, self).__init__()
         self.f0_threshold = f0_threshold
         self.lo_threshold = lo_threshold
 
@@ -27,7 +27,7 @@ class MidiLoss(nn.Module):
                 offsets,
                 types=["mean", "mean"]) -> torch.Tensor:
         # create the corresponding mask
-        mask = self.__create_mask(onsets, offsets).cuda()
+        mask = self.__create_mask(onsets, offsets).to(gen_f0.device)
 
         # apply mask to the pitch contours
         mk_gen_f0 = mask * gen_f0.squeeze(1)
@@ -48,8 +48,9 @@ class MidiLoss(nn.Module):
     jit(nopython=True, parallel=True)
 
     def __contour_loss(self, mk_gen, mk_target, mask, threshold, alg):
+        loss_mean = loss_prop = 0
 
-        if alg == "mean":
+        if alg in ["mean", "both"]:
             # compute the means for each notes for both contours
             mean_gen = torch.mean(mk_gen,
                                   dim=-1) / (torch.mean(mask, dim=-1) + 1e-6)
@@ -59,13 +60,14 @@ class MidiLoss(nn.Module):
             # compute the difference between means
             diff = torch.abs(mean_gen - mean_target)
 
-            loss = torch.mean(torch.relu(diff - threshold))
-        else:
+            loss_mean = torch.mean(torch.relu(diff - threshold))
+
+        if alg != "mean":
             # we compute a proportional loss
             diff = torch.abs(mk_gen - mk_target)
-            loss = torch.sum((diff > threshold).float()) / torch.sum(mask)
+            loss_prop = torch.sum((diff > threshold).float()) / torch.sum(mask)
 
-        return loss
+        return (loss_mean + loss_prop) * (1 - 0.5 * (alg == "both"))
 
     jit(nopython=True, parallel=True)
 
@@ -93,18 +95,19 @@ class MidiLoss(nn.Module):
             mask_sample = []
 
             #initialize current mask
-            m = torch.zeros((1, l))
+            m = torch.ones((1, l))
 
             for idx in range(l):
                 if offsets[i_sample][idx]:
-                    m[idx:] -= 1
+                    m[:, idx:] -= 1
                     # add mask to the sample mask
                     mask_sample += [m]
+
                     # reinitialize the mask
-                    m = torch.zeros((1, l))
+                    m = torch.ones((1, l))
 
                 if onsets[i_sample][idx]:
-                    m[:idx] -= 1
+                    m[:, :idx] -= 1
 
             # update if necessary the highest number of notes in a sample
             n_n_max = max(n_n_max, len(mask_sample))
