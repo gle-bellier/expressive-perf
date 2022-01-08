@@ -139,7 +139,7 @@ class PerfGAN(pl.LightningModule):
 
             tqdm_dict = {'g_loss': ext_gen_loss}
             output = OrderedDict({
-                'loss': gen_loss,
+                'loss': ext_gen_loss,
                 'progress_bar': tqdm_dict,
                 'log': tqdm_dict
             })
@@ -201,7 +201,8 @@ class PerfGAN(pl.LightningModule):
         b2 = self.hparams.b2
 
         opt_g = torch.optim.Adam(self.gen.parameters(), lr=lr, betas=(b1, b2))
-        opt_d = torch.optim.Adam(self.disc.parameters(), lr=lr, betas=(b1, b2))
+        #opt_d = torch.optim.Adam(self.disc.parameters(), lr=lr, betas=(b1, b2))
+        opt_d = torch.optim.SGD(self.disc.parameters(), lr=lr, momentum=.5)
 
         return [opt_g, opt_d], []
 

@@ -49,6 +49,7 @@ class Discriminator(nn.Module):
         Returns:
             torch.Tensor: output tensor of size (B, 1, 1)
         """
+
         for conv in self.conv:
             x = conv(x)
         for l in self.linears:
