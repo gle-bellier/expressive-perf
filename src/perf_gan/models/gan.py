@@ -58,7 +58,7 @@ class PerfGAN(pl.LightningModule):
 
         self.criteron = criteron
         self.dataset = None
-        self.pitch_loss = Midi_loss().cuda()
+        self.midi_loss = Midi_loss().cuda()
 
         self.val_idx = 0
 
@@ -94,8 +94,13 @@ class PerfGAN(pl.LightningModule):
 
         # add pitch loss
 
-        pitch_loss, lo_loss = self.midi_loss(inv_gen_f0, inv_u_f0, inv_gen_lo,
-                                             inv_u_lo, onsets, offsets)
+        pitch_loss, lo_loss = self.midi_loss(inv_gen_f0,
+                                             inv_u_f0,
+                                             inv_gen_lo,
+                                             inv_u_lo,
+                                             onsets,
+                                             offsets,
+                                             types=["both", "both"])
 
         return gen_loss, pitch_loss, lo_loss
 
@@ -132,11 +137,11 @@ class PerfGAN(pl.LightningModule):
             # train generator
             gen_loss, pitch_loss, lo_loss = self.gen_step(batch)
             # compute extend gen loss
-            ext_gen_loss = gen_loss + pitch_loss + lo_loss
+            ext_gen_loss = gen_loss + (pitch_loss + lo_loss) / 2
 
             self.log("gen_loss", gen_loss)
-            self.log("gen_pitch_loss", pitch_loss)
-            self.log("gen_lo_loss", lo_loss)
+            self.log("gen_pitch_loss", pitch_loss / 2)
+            self.log("gen_lo_loss", lo_loss / 2)
             self.log("ext_gen_loss", ext_gen_loss)
 
             tqdm_dict = {'g_loss': ext_gen_loss}
