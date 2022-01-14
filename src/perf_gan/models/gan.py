@@ -137,7 +137,7 @@ class PerfGAN(pl.LightningModule):
         gen_contours = self.gen(u_contours)
 
         # train discriminator
-        disc_loss = self.disc_step(batch)
+        disc_loss = self.disc_step(u_contours, e_contours, gen_contours)
 
         self.disc.zero_grad()
         self.manual_backward(disc_loss)
@@ -145,17 +145,17 @@ class PerfGAN(pl.LightningModule):
 
         # train generator
 
-        gen_loss, pitch_loss, lo_loss = self.gen_step(batch)
-
-        self.log("gen_loss", gen_loss)
-        self.log("gen_loss", disc_loss)
-        self.log("gen_pitch_loss", pitch_loss)
-        self.log("gen_lo_loss", lo_loss)
+        gen_loss, pitch_loss, lo_loss = self.gen_step(u_contours, e_contours,
+                                                      gen_contours)
 
         g_opt.zero_grad()
         self.manual_backward(gen_loss)
         g_opt.step()
 
+        self.log("gen_loss", gen_loss)
+        self.log("gen_loss", disc_loss)
+        self.log("gen_pitch_loss", pitch_loss)
+        self.log("gen_lo_loss", lo_loss)
         self.log_dict({"g_loss": gen_loss, "d_loss": disc_loss}, prog_bar=True)
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
