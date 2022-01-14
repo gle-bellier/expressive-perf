@@ -57,7 +57,7 @@ class DatasetCreator:
             interval = np.random.choice(self.intervals)
             length = int(interval * self.sr)
             self.__build_pitch(start, length)
-            self.__build_lo(start, length, type="mean")
+            self.__build_lo(start, length, type="peak")
             start += length
 
     def __build_pitch(self, start: int, length: int) -> None:
@@ -156,4 +156,4 @@ if __name__ == '__main__':
     print("Build dataset")
     d.build(10000, 5)
     print("Export dataset")
-    d.export("data/", "dataset.pickle")
+    d.export("data/", "test.pickle")
