@@ -62,6 +62,12 @@ class PerfGAN(pl.LightningModule):
 
         self.val_idx = 0
 
+        self.midi_loss_buffer = (0, 0)
+        self.pitch_ratio = 1
+        self.lo_ratio = 1
+
+        self.automatic_optimization = False
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute generator pass forward with unexpressive contours
         (MIDI)
@@ -94,13 +100,15 @@ class PerfGAN(pl.LightningModule):
 
         # add pitch loss
 
-        pitch_loss, lo_loss = self.midi_loss(inv_gen_f0,
-                                             inv_u_f0,
-                                             inv_gen_lo,
-                                             inv_u_lo,
-                                             onsets,
-                                             offsets,
-                                             types=["both", "both"])
+        # pitch_loss, lo_loss = self.midi_loss(inv_gen_f0,
+        #                                      inv_u_f0,
+        #                                      inv_gen_lo,
+        #                                      inv_u_lo,
+        #                                      onsets,
+        #                                      offsets,
+        #                                      types=["mean", "mean"])
+
+        pitch_loss = lo_loss = 0
 
         return gen_loss, pitch_loss, lo_loss
 
@@ -135,37 +143,28 @@ class PerfGAN(pl.LightningModule):
 
         if optimizer_idx == 0:
             # train generator
-            gen_loss, pitch_loss, lo_loss = self.gen_step(batch)
-            # compute extend gen loss
-            ext_gen_loss = gen_loss + (pitch_loss + lo_loss) / 2
+            loss, pitch_loss, lo_loss = self.gen_step(batch)
+            self.midi_loss_buffer = (pitch_loss, lo_loss)
 
-            self.log("gen_loss", gen_loss)
-            self.log("gen_pitch_loss", pitch_loss / 2)
-            self.log("gen_lo_loss", lo_loss / 2)
-            self.log("ext_gen_loss", ext_gen_loss)
-
-            tqdm_dict = {'g_loss': ext_gen_loss}
-            output = OrderedDict({
-                'loss': ext_gen_loss,
-                'progress_bar': tqdm_dict,
-                'log': tqdm_dict
-            })
-            return output
+            self.log("gen_loss", loss)
+            self.log("gen_pitch_loss", pitch_loss)
+            self.log("gen_lo_loss", lo_loss)
 
         if optimizer_idx == 1:
             # train discriminator
-            disc_loss = self.disc_step(batch)
+            loss = self.disc_step(batch)
+            self.log("disc_loss", loss)
 
-            self.log("disc_loss", disc_loss)
+        # loss += self.midi_loss_buffer[
+        #     0] * self.pitch_ratio + self.midi_loss_buffer[1] * self.lo_ratio
 
-            tqdm_dict = {'d_loss': disc_loss}
-            output = OrderedDict({
-                'loss': disc_loss,
-                'progress_bar': tqdm_dict,
-                'log': tqdm_dict
-            })
-
-            return output
+        tqdm_dict = {'loss': loss}
+        output = OrderedDict({
+            'loss': loss,
+            'progress_bar': tqdm_dict,
+            'log': tqdm_dict
+        })
+        return output
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
         """Compute validation step (do some logging)
@@ -221,13 +220,20 @@ if __name__ == "__main__":
     }), (LoudnessTransform, {
         "feature_range": (-1, 1)
     })]
-    dataset = GANDataset(path="data/dataset.pickle",
-                         n_sample=1024,
-                         list_transforms=list_transforms)
-    dataloader = DataLoader(dataset=dataset,
-                            batch_size=16,
-                            shuffle=True,
-                            num_workers=8)
+    train_set = GANDataset(path="data/train.pickle",
+                           n_sample=1024,
+                           list_transforms=list_transforms)
+    train_dataloader = DataLoader(dataset=train_set,
+                                  batch_size=16,
+                                  shuffle=True,
+                                  num_workers=8)
+    test_set = GANDataset(path="data/test.pickle",
+                          n_sample=1024,
+                          list_transforms=list_transforms)
+    test_dataloader = DataLoader(dataset=test_set,
+                                 batch_size=16,
+                                 shuffle=True,
+                                 num_workers=8)
 
     criteron = Hinge_loss()
     # init model
@@ -235,17 +241,17 @@ if __name__ == "__main__":
                     g_up_channels=[32, 16, 8, 4, 2],
                     g_down_dilations=[1, 1, 3, 3],
                     g_up_dilations=[3, 3, 1, 1, 1],
-                    d_conv_channels=[2, 32, 16, 1],
-                    d_dilations=[1, 1, 3],
-                    d_h_dims=[1024, 32, 1],
+                    d_conv_channels=[2, 32, 16, 8, 1],
+                    d_dilations=[1, 1, 1, 3],
+                    d_h_dims=[1024, 64, 32, 1],
                     criteron=criteron,
-                    lr=1e-3,
+                    lr=1e-4,
                     b1=0.5,
                     b2=0.999)
 
-    model.dataset = dataset
+    model.dataset = train_set
 
     tb_logger = pl_loggers.TensorBoardLogger('runs/')
     trainer = pl.Trainer(gpus=1, max_epochs=1000, logger=tb_logger)
 
-    trainer.fit(model, dataloader, dataloader)
+    trainer.fit(model, train_dataloader, test_dataloader)
