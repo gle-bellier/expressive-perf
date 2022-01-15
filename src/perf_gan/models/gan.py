@@ -210,15 +210,16 @@ if __name__ == "__main__":
     }), (LoudnessTransform, {
         "feature_range": (-1, 1)
     })]
+    n_sample = 512
     train_set = GANDataset(path="data/train.pickle",
-                           n_sample=1024,
+                           n_sample=n_sample,
                            list_transforms=list_transforms)
     train_dataloader = DataLoader(dataset=train_set,
                                   batch_size=16,
                                   shuffle=True,
                                   num_workers=8)
     test_set = GANDataset(path="data/test.pickle",
-                          n_sample=1024,
+                          n_sample=n_sample,
                           list_transforms=list_transforms)
     test_dataloader = DataLoader(dataset=test_set,
                                  batch_size=16,
@@ -233,9 +234,9 @@ if __name__ == "__main__":
                     g_up_dilations=[3, 3, 1, 1, 1],
                     d_conv_channels=[2, 32, 16, 8, 1],
                     d_dilations=[1, 1, 1, 3],
-                    d_h_dims=[1024, 64, 32, 1],
+                    d_h_dims=[n_sample, 64, 32, 1],
                     criteron=criteron,
-                    lr=1e-4,
+                    lr=1e-3,
                     b1=0.5,
                     b2=0.999)
 
