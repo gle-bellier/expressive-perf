@@ -87,10 +87,10 @@ class PerfGAN(pl.LightningModule):
         gen_loss = self.criteron.gen_loss(disc_e, disc_gu)
 
         # apply inverse transform to compare pitches (midi range) and loudness (midi range)
-        inv_u_f0, inv_u_lo = self.dataset.inverse_transform(u_contours).split(
-            1, 1)
-        inv_gen_f0, inv_gen_lo = self.dataset.inverse_transform(
-            gen_contours).split(1, 1)
+        # inv_u_f0, inv_u_lo = self.dataset.inverse_transform(u_contours).split(
+        #     1, 1)
+        # inv_gen_f0, inv_gen_lo = self.dataset.inverse_transform(
+        #     gen_contours).split(1, 1)
 
         # add pitch loss
 
@@ -152,10 +152,8 @@ class PerfGAN(pl.LightningModule):
         self.manual_backward(gen_loss)
         g_opt.step()
 
-        self.log("gen_loss", gen_loss)
-        self.log("gen_loss", disc_loss)
-        self.log("gen_pitch_loss", pitch_loss)
-        self.log("gen_lo_loss", lo_loss)
+        # self.log("gen_pitch_loss", pitch_loss)
+        # self.log("gen_lo_loss", lo_loss)
         self.log_dict({"g_loss": gen_loss, "d_loss": disc_loss}, prog_bar=True)
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
