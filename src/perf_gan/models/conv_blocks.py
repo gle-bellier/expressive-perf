@@ -59,7 +59,7 @@ class ConvBlock(nn.Module):
         x = self.conv(x)
         if self.norm:
             x = self.bn(x)
-        x = self.lr(x)
-        out = self.dp(x)
+        out = self.lr(x)
+        #out = self.dp(out)
 
         return out
