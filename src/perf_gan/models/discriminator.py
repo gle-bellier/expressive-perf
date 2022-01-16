@@ -3,6 +3,7 @@ import torch.nn as nn
 from typing import List
 
 from perf_gan.models.conv_blocks import ConvBlock
+from perf_gan.models.linear_blocks import LinBlock
 
 
 class Discriminator(nn.Module):
@@ -28,7 +29,7 @@ class Discriminator(nn.Module):
                 conv_channels[:-1], conv_channels[1:], dilations)
         ])
         self.linears = nn.ModuleList([
-            nn.Linear(in_features=in_features, out_features=out_features)
+            LinBlock(in_features=in_features, out_features=out_features)
             for in_features, out_features in zip(h_dims[:-1], h_dims[1:])
         ])
         self.__initialize_weights()
@@ -53,7 +54,6 @@ class Discriminator(nn.Module):
         for conv in self.conv:
             x = conv(x)
         for l in self.linears:
-            x = nn.LeakyReLU(x)
             x = l(x)
 
         return x
