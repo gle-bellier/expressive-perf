@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from perf_gan.models.conv_blocks import ConvBlock
+from perf_gan.utils.get_padding import get_padding
 
 
 class UBlock(nn.Module):
@@ -34,12 +35,12 @@ class UBlock(nn.Module):
                     dilation=dilation,
                 ))
         else:
-            self.main = nn.Sequential(
-                ConvBlock(in_channels, out_channels, dilation=dilation),
-                ConvBlock(out_channels, out_channels, dilation=dilation))
-
             self.residual = nn.Sequential(
-                ConvBlock(in_channels, out_channels, dilation))
+                nn.Conv1d(in_channels,
+                          out_channels,
+                          kernel_size=3,
+                          padding=get_padding(3, 1, dilation),
+                          dilation=dilation))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute pass forward for the Upsampling convolution block.
@@ -50,6 +51,10 @@ class UBlock(nn.Module):
         Returns:
             torch.Tensor: computed output of size (B, C_out, L)
         """
-        main = self.main(x)
+
         residual = self.residual(x)
-        return main + residual
+        if self.last:
+            return residual
+        else:
+            main = self.main(x)
+            return main + residual
