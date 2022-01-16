@@ -17,10 +17,8 @@ class Hinge_loss:
         Returns:
             torch.Tensor: loss of the discriminator 
         """
-
-        zeros = torch.zeros_like(dx)
-        loss_real = -torch.mean(torch.min(zeros, -1 + dx))
-        loss_fake = -torch.mean(torch.min(zeros, -1 - dgz))
+        loss_real = -torch.mean(torch.relu(1 - dx))
+        loss_fake = -torch.mean(torch.relu(1 + dgz))
 
         return loss_real + loss_fake
 
@@ -35,7 +33,6 @@ class Hinge_loss:
             torch.Tensor: loss of the generator 
         """
 
-        loss_real = 0  #torch.mean(dx)
         loss_fake = -torch.mean(dgz)
 
-        return loss_real + loss_fake
+        return loss_fake
