@@ -53,5 +53,7 @@ class Discriminator(nn.Module):
         for conv in self.conv:
             x = conv(x)
         for l in self.linears:
+            x = nn.LeakyReLU(x)
             x = l(x)
+
         return x
