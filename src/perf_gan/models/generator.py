@@ -104,4 +104,4 @@ class Generator(nn.Module):
         x = self.bottleneck(x)
         out = self.up_sampling(x)
 
-        return out
+        return torch.sigmoid(out)
