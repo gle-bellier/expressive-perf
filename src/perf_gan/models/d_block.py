@@ -27,6 +27,7 @@ class DBlock(nn.Module):
         self.conv1 = ConvBlock(in_channels, out_channels, dilation)
         self.conv2 = ConvBlock(out_channels, out_channels, dilation)
         self.mp = nn.MaxPool1d(kernel_size=2)
+        self.avg = nn.AvgPool1d(kernel_size=2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Pass forward of the downsampling block
@@ -39,6 +40,6 @@ class DBlock(nn.Module):
         """
         x = self.conv1(x)
         if not self.first:
-            x = self.mp(x)
+            x = self.avg(x)
         out = self.conv2(x)
         return out
