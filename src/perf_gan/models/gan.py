@@ -197,8 +197,8 @@ class PerfGAN(pl.LightningModule):
         b2 = self.hparams.b2
 
         opt_g = torch.optim.Adam(self.gen.parameters(), lr=lr, betas=(b1, b2))
-        #opt_d = torch.optim.Adam(self.disc.parameters(), lr=lr, betas=(b1, b2))
-        opt_d = torch.optim.SGD(self.disc.parameters(), lr=lr, momentum=.5)
+        opt_d = torch.optim.Adam(self.disc.parameters(), lr=lr, betas=(b1, b2))
+        #opt_d = torch.optim.SGD(self.disc.parameters(), lr=lr, momentum=.5)
 
         return opt_g, opt_d
 
@@ -210,33 +210,35 @@ if __name__ == "__main__":
     }), (LoudnessTransform, {
         "feature_range": (-1, 1)
     })]
-    n_sample = 512
+    n_sample = 1024
     train_set = GANDataset(path="data/train.pickle",
                            n_sample=n_sample,
                            list_transforms=list_transforms)
     train_dataloader = DataLoader(dataset=train_set,
-                                  batch_size=16,
+                                  batch_size=32,
                                   shuffle=True,
                                   num_workers=8)
     test_set = GANDataset(path="data/test.pickle",
                           n_sample=n_sample,
                           list_transforms=list_transforms)
     test_dataloader = DataLoader(dataset=test_set,
-                                 batch_size=16,
+                                 batch_size=32,
                                  shuffle=True,
                                  num_workers=8)
 
+    #lr = 1e-3
+    lr = 1e-3
     criteron = Hinge_loss()
     # init model
-    model = PerfGAN(g_down_channels=[2, 4, 8, 16],
-                    g_up_channels=[32, 16, 8, 4, 2],
-                    g_down_dilations=[1, 1, 3, 3],
-                    g_up_dilations=[3, 3, 1, 1, 1],
-                    d_conv_channels=[2, 32, 16, 8, 1],
-                    d_dilations=[1, 1, 1, 3],
-                    d_h_dims=[n_sample, 64, 32, 1],
+    model = PerfGAN(g_down_channels=[2, 4, 8],
+                    g_up_channels=[16, 8, 4, 2],
+                    g_down_dilations=[1, 1, 1],
+                    g_up_dilations=[1, 1, 1, 1],
+                    d_conv_channels=[2, 16, 1],
+                    d_dilations=[1, 1, 1],
+                    d_h_dims=[n_sample, 128, 1],
                     criteron=criteron,
-                    lr=1e-3,
+                    lr=lr,
                     b1=0.5,
                     b2=0.999)
 
