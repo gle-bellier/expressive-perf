@@ -245,6 +245,6 @@ if __name__ == "__main__":
     model.dataset = train_set
 
     tb_logger = pl_loggers.TensorBoardLogger('runs/')
-    trainer = pl.Trainer(gpus=1, max_epochs=1000, logger=tb_logger)
+    trainer = pl.Trainer(gpus=1, max_epochs=10000, logger=tb_logger)
 
     trainer.fit(model, train_dataloader, test_dataloader)
