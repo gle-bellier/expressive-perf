@@ -79,7 +79,7 @@ class PerfGAN(pl.LightningModule):
         """
         return self.gen(x)
 
-    def gen_step(self, u_contours, e_contours, gen_contours):
+    def gen_step(self, u_contours, e_contours, gen_contours, onsets, offsets):
 
         disc_e = self.disc(e_contours).view(-1)
         disc_gu = self.disc(gen_contours).view(-1)
@@ -87,22 +87,20 @@ class PerfGAN(pl.LightningModule):
         gen_loss = self.criteron.gen_loss(disc_e, disc_gu)
 
         # apply inverse transform to compare pitches (midi range) and loudness (midi range)
-        # inv_u_f0, inv_u_lo = self.dataset.inverse_transform(u_contours).split(
-        #     1, 1)
-        # inv_gen_f0, inv_gen_lo = self.dataset.inverse_transform(
-        #     gen_contours).split(1, 1)
+        inv_u_f0, inv_u_lo = self.dataset.inverse_transform(u_contours).split(
+            1, 1)
+        inv_gen_f0, inv_gen_lo = self.dataset.inverse_transform(
+            gen_contours).split(1, 1)
 
         # add pitch loss
 
-        # pitch_loss, lo_loss = self.midi_loss(inv_gen_f0,
-        #                                      inv_u_f0,
-        #                                      inv_gen_lo,
-        #                                      inv_u_lo,
-        #                                      onsets,
-        #                                      offsets,
-        #                                      types=["mean", "mean"])
-
-        pitch_loss = lo_loss = 0
+        pitch_loss, lo_loss = self.midi_loss(inv_gen_f0,
+                                             inv_u_f0,
+                                             inv_gen_lo,
+                                             inv_u_lo,
+                                             onsets,
+                                             offsets,
+                                             types=["mean", "mean"])
 
         return gen_loss, pitch_loss, lo_loss
 
@@ -146,14 +144,15 @@ class PerfGAN(pl.LightningModule):
         # train generator
 
         gen_loss, pitch_loss, lo_loss = self.gen_step(u_contours, e_contours,
-                                                      gen_contours)
+                                                      gen_contours, onsets,
+                                                      offsets)
 
         g_opt.zero_grad()
-        self.manual_backward(gen_loss)
+        self.manual_backward(gen_loss + pitch_loss + lo_loss)
         g_opt.step()
 
-        # self.log("gen_pitch_loss", pitch_loss)
-        # self.log("gen_lo_loss", lo_loss)
+        self.log("pitch_loss", pitch_loss)
+        self.log("lo_loss", lo_loss)
         self.log_dict({"g_loss": gen_loss, "d_loss": disc_loss}, prog_bar=True)
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
@@ -215,14 +214,14 @@ if __name__ == "__main__":
                            n_sample=n_sample,
                            list_transforms=list_transforms)
     train_dataloader = DataLoader(dataset=train_set,
-                                  batch_size=32,
+                                  batch_size=16,
                                   shuffle=True,
                                   num_workers=8)
     test_set = GANDataset(path="data/test.pickle",
                           n_sample=n_sample,
                           list_transforms=list_transforms)
     test_dataloader = DataLoader(dataset=test_set,
-                                 batch_size=32,
+                                 batch_size=16,
                                  shuffle=True,
                                  num_workers=8)
 
