@@ -67,6 +67,8 @@ class PerfGAN(pl.LightningModule):
 
         self.automatic_optimization = False
 
+        self.ddsp = None
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute generator pass forward with unexpressive contours
         (MIDI)
@@ -155,6 +157,9 @@ class PerfGAN(pl.LightningModule):
         self.log("lo_loss", lo_loss)
         self.log_dict({"g_loss": gen_loss, "d_loss": disc_loss}, prog_bar=True)
 
+    def __midi2hz(self, x):
+        return torch.pow(2, x / 12) * 440
+
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
         """Compute validation step (do some logging)
 
@@ -166,11 +171,20 @@ class PerfGAN(pl.LightningModule):
         if self.val_idx % 100 == 0:
 
             u_contours, e_contours, _, _ = batch
-            fake_contours = self.gen(u_contours)
+            gen_contours = self.gen(u_contours)
 
-            u_f0, u_lo = u_contours[0].split(1, 0)
-            e_f0, e_lo = e_contours[0].split(1, 0)
-            g_f0, g_lo = fake_contours[0].split(1, 0)
+            inv_u_f0, inv_u_lo = self.dataset.inverse_transform(
+                u_contours).split(1, 1)
+            inv_e_f0, inv_e_lo = self.dataset.inverse_transform(
+                e_contours).split(1, 1)
+            inv_g_f0, inv_g_lo = self.dataset.inverse_transform(
+                gen_contours).split(1, 1)
+
+            u_f0, u_lo = self.__midi2hz(inv_u_f0[0]), inv_u_lo[0]
+            e_f0, e_lo = self.__midi2hz(inv_e_f0[0]), inv_e_lo[0]
+            g_f0, g_lo = self.__midi2hz(inv_g_f0[0]), inv_g_lo[0]
+
+            #convert frequencies
 
             plt.plot(u_f0.squeeze().cpu().detach(), label="u_f0")
             plt.plot(e_f0.squeeze().cpu().detach(), label="e_f0")
@@ -183,6 +197,18 @@ class PerfGAN(pl.LightningModule):
             plt.plot(g_lo.squeeze().cpu().detach(), label="g_lo")
             plt.legend()
             self.logger.experiment.add_figure("lo", plt.gcf(), self.val_idx)
+
+            if self.ddsp is not None:
+                g_f0 = g_f0.float().reshape(1, -1, 1)
+                g_lo = g_lo.float().reshape(1, -1, 1)
+                signal = self.ddsp(g_f0, g_lo)
+                signal = signal.reshape(-1).cpu().numpy()
+                self.logger.experiment.add_audio(
+                    "generation",
+                    signal,
+                    self.val_idx,
+                    16000,
+                )
 
     def configure_optimizers(self) -> Tuple:
         """Configure both generator and discriminator optimizers
@@ -242,6 +268,7 @@ if __name__ == "__main__":
                     b2=0.999)
 
     model.dataset = train_set
+    model.ddsp = torch.jit.load("ddsp_flute.ts").eval()
 
     tb_logger = pl_loggers.TensorBoardLogger('runs/')
     trainer = pl.Trainer(gpus=1, max_epochs=10000, logger=tb_logger)
