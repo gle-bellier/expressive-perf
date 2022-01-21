@@ -30,7 +30,7 @@ class DatasetCreator:
         self.p_vibrato = 1.  # first we consider there is always a vibrato
         self.sparcity = .8
 
-    def build(self, n: int, duration: int) -> None:
+    def build(self, n: int, duration: int, type_lo: str) -> None:
         """Build the dataset composed of n samples of length duration (in s.)
 
         Args:
@@ -57,7 +57,7 @@ class DatasetCreator:
             interval = np.random.choice(self.intervals)
             length = int(interval * self.sr)
             self.__build_pitch(start, length)
-            self.__build_lo(start, length, type="peak")
+            self.__build_lo(start, length, type=type_lo)
             start += length
 
     def __build_pitch(self, start: int, length: int) -> None:
@@ -154,6 +154,8 @@ class DatasetCreator:
 if __name__ == '__main__':
     d = DatasetCreator()
     print("Build dataset")
-    d.build(10000, 5)
+    type_dataset = "test"
+    type_lo = "mean"
+    d.build(10000, 5, type_lo)
     print("Export dataset")
-    d.export("data/", "test.pickle")
+    d.export("data/", f"{type_dataset}-{type_lo}.pickle")
