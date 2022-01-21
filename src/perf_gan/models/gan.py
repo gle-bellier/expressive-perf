@@ -102,7 +102,8 @@ class PerfGAN(pl.LightningModule):
                                              inv_u_lo,
                                              onsets,
                                              offsets,
-                                             types=["mean", "mean"])
+                                             types=["mean", "mean"],
+                                             abs=[False, False])
 
         return gen_loss, pitch_loss, lo_loss
 
@@ -158,7 +159,7 @@ class PerfGAN(pl.LightningModule):
         self.log_dict({"g_loss": gen_loss, "d_loss": disc_loss}, prog_bar=True)
 
     def __midi2hz(self, x):
-        return torch.pow(2, x / 12) * 440
+        return torch.pow(2, (x - 69) / 12) * 440
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
         """Compute validation step (do some logging)
