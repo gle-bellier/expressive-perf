@@ -25,7 +25,8 @@ class Midi_loss(nn.Module):
                 t_lo,
                 onsets,
                 offsets,
-                types=["mean", "mean"]) -> torch.Tensor:
+                types=["mean", "mean"],
+                abs=[True, True]) -> torch.Tensor:
         # create the corresponding mask
         mask = self.__create_mask(onsets, offsets).to(gen_f0.device)
 
@@ -37,17 +38,31 @@ class Midi_loss(nn.Module):
         mk_gen_lo = mask * gen_lo.squeeze(1)
         mk_t_lo = mask * t_lo.squeeze(1)
 
-        loss_pitch = self.__contour_loss(mk_gen_f0, mk_t_f0, mask,
-                                         self.f0_threshold, types[0])
+        loss_pitch = self.__contour_loss(mk_gen_f0,
+                                         mk_t_f0,
+                                         mask,
+                                         self.f0_threshold,
+                                         types[0],
+                                         abs=abs[0])
 
-        loss_lo = self.__contour_loss(mk_gen_lo, mk_t_lo, mask,
-                                      self.lo_threshold, types[1])
+        loss_lo = self.__contour_loss(mk_gen_lo,
+                                      mk_t_lo,
+                                      mask,
+                                      self.lo_threshold,
+                                      types[1],
+                                      abs=abs[0])
 
         return loss_pitch, loss_lo
 
     jit(nopython=True, parallel=True)
 
-    def __contour_loss(self, mk_gen, mk_target, mask, threshold, alg):
+    def __contour_loss(self,
+                       mk_gen,
+                       mk_target,
+                       mask,
+                       threshold,
+                       alg,
+                       abs=True):
         loss_mean = loss_prop = 0
 
         if alg in ["mean", "both"]:
@@ -58,13 +73,19 @@ class Midi_loss(nn.Module):
                 mk_target, dim=-1) / (torch.mean(mask, dim=-1) + 1e-6)
 
             # compute the difference between means
-            diff = torch.abs(mean_gen - mean_target)
+            if abs:
+                diff = torch.abs(mean_gen - mean_target)
+            else:
+                diff = torch.abs(mean_gen - mean_target)
 
             loss_mean = torch.mean(torch.relu(diff - threshold))
 
         if alg != "mean":
             # we compute a proportional loss
-            diff = torch.abs(mk_gen - mk_target)
+            if abs:
+                diff = torch.abs(mk_gen - mk_target)
+            else:
+                mk_gen - mk_target
             loss_prop = torch.sum((diff > threshold).float()) / torch.sum(mask)
 
         return (loss_mean + loss_prop) * (1 - 0.5 * (alg == "both"))
