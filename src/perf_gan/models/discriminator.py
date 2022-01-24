@@ -24,7 +24,8 @@ class Discriminator(nn.Module):
         self.conv = nn.ModuleList([
             ConvBlock(in_channels=in_channels,
                       out_channels=out_channels,
-                      dilation=dilation)
+                      dilation=dilation,
+                      norm=False)
             for in_channels, out_channels, dilation in zip(
                 conv_channels[:-1], conv_channels[1:], dilations)
         ])

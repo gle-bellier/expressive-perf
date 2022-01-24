@@ -25,8 +25,8 @@ class PerfGAN(pl.LightningModule):
     def __init__(self, g_down_channels: List[int], g_up_channels: List[int],
                  g_down_dilations: List[int], g_up_dilations: List[int],
                  d_conv_channels: List[int], d_dilations: List[int],
-                 d_h_dims: List[int], criteron: float, lr: float, b1: int,
-                 b2: int):
+                 d_h_dims: List[int], criteron: float, regularization: bool,
+                 lr: float, b1: int, b2: int):
         """[summary]
 
         Args:
@@ -57,6 +57,7 @@ class PerfGAN(pl.LightningModule):
                                   h_dims=d_h_dims)
 
         self.criteron = criteron
+        self.reg = regularization
         self.dataset = None
         self.midi_loss = Midi_loss().cuda()
 
@@ -87,23 +88,27 @@ class PerfGAN(pl.LightningModule):
         disc_gu = self.disc(gen_contours).view(-1)
 
         gen_loss = self.criteron.gen_loss(disc_e, disc_gu)
+        if self.reg:
 
-        # apply inverse transform to compare pitches (midi range) and loudness (midi range)
-        inv_u_f0, inv_u_lo = self.dataset.inverse_transform(u_contours).split(
-            1, 1)
-        inv_gen_f0, inv_gen_lo = self.dataset.inverse_transform(
-            gen_contours).split(1, 1)
+            # apply inverse transform to compare pitches (midi range) and loudness (midi range)
+            inv_u_f0, inv_u_lo = self.dataset.inverse_transform(
+                u_contours).split(1, 1)
+            inv_gen_f0, inv_gen_lo = self.dataset.inverse_transform(
+                gen_contours).split(1, 1)
 
-        # add pitch loss
+            # add pitch loss
 
-        pitch_loss, lo_loss = self.midi_loss(inv_gen_f0,
-                                             inv_u_f0,
-                                             inv_gen_lo,
-                                             inv_u_lo,
-                                             onsets,
-                                             offsets,
-                                             types=["mean", "mean"],
-                                             abs=[False, False])
+            pitch_loss, lo_loss = self.midi_loss(inv_gen_f0,
+                                                 inv_u_f0,
+                                                 inv_gen_lo,
+                                                 inv_u_lo,
+                                                 onsets,
+                                                 offsets,
+                                                 types=["mean", "mean"],
+                                                 abs=[False, False])
+
+        else:
+            pitch_loss = lo_loss = 0
 
         return gen_loss, pitch_loss, lo_loss
 
@@ -154,8 +159,10 @@ class PerfGAN(pl.LightningModule):
         self.manual_backward(gen_loss + pitch_loss + lo_loss)
         g_opt.step()
 
-        self.log("pitch_loss", pitch_loss)
-        self.log("lo_loss", lo_loss)
+        if self.reg:
+            self.log("pitch_loss", pitch_loss)
+            self.log("lo_loss", lo_loss)
+
         self.log_dict({"g_loss": gen_loss, "d_loss": disc_loss}, prog_bar=True)
 
     def __midi2hz(self, x):
@@ -187,14 +194,16 @@ class PerfGAN(pl.LightningModule):
 
             #convert frequencies
 
-            plt.plot(u_f0.squeeze().cpu().detach(), label="u_f0")
-            plt.plot(e_f0.squeeze().cpu().detach(), label="e_f0")
+            if self.reg:
+                plt.plot(u_f0.squeeze().cpu().detach(), label="u_f0")
+                plt.plot(e_f0.squeeze().cpu().detach(), label="e_f0")
             plt.plot(g_f0.squeeze().cpu().detach(), label="g_f0")
             plt.legend()
             self.logger.experiment.add_figure("pitch", plt.gcf(), self.val_idx)
 
-            plt.plot(u_lo.squeeze().cpu().detach(), label="u_lo")
-            plt.plot(e_lo.squeeze().cpu().detach(), label="e_lo")
+            if self.reg:
+                plt.plot(u_lo.squeeze().cpu().detach(), label="u_lo")
+                plt.plot(e_lo.squeeze().cpu().detach(), label="e_lo")
             plt.plot(g_lo.squeeze().cpu().detach(), label="g_lo")
             plt.legend()
             self.logger.experiment.add_figure("lo", plt.gcf(), self.val_idx)
@@ -256,14 +265,15 @@ if __name__ == "__main__":
     lr = 1e-3
     criteron = Hinge_loss()
     # init model
-    model = PerfGAN(g_down_channels=[2, 4, 8],
-                    g_up_channels=[16, 8, 4, 2],
-                    g_down_dilations=[1, 1, 1],
-                    g_up_dilations=[1, 1, 1, 1],
-                    d_conv_channels=[2, 16, 1],
-                    d_dilations=[1, 1, 1],
-                    d_h_dims=[n_sample, 128, 1],
+    model = PerfGAN(g_down_channels=[2, 32, 64, 128],
+                    g_up_channels=[512, 128, 64, 32, 2],
+                    g_down_dilations=[3, 1, 1, 1],
+                    g_up_dilations=[3, 1, 1, 1, 1],
+                    d_conv_channels=[2, 64, 128, 32, 1],
+                    d_dilations=[1, 1, 1, 1, 1],
+                    d_h_dims=[n_sample, 128, 64, 1],
                     criteron=criteron,
+                    regularization=False,
                     lr=lr,
                     b1=0.5,
                     b2=0.999)
