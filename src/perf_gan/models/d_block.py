@@ -24,8 +24,8 @@ class DBlock(nn.Module):
 
         self.first = first
         self.lr = nn.LeakyReLU()
-        self.conv1 = ConvBlock(in_channels, out_channels, dilation)
-        self.conv2 = ConvBlock(out_channels, out_channels, dilation)
+        self.conv1 = ConvBlock(in_channels, out_channels, dilation, norm=True)
+        self.conv2 = ConvBlock(out_channels, out_channels, dilation, norm=True)
         self.mp = nn.MaxPool1d(kernel_size=2)
         self.avg = nn.AvgPool1d(kernel_size=2)
 

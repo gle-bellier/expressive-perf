@@ -24,16 +24,21 @@ class UBlock(nn.Module):
         if not last:
             self.main = nn.Sequential(
                 nn.Upsample(scale_factor=2),
-                ConvBlock(in_channels, out_channels, dilation=dilation),
-                ConvBlock(out_channels, out_channels, dilation=dilation))
+                ConvBlock(in_channels,
+                          out_channels,
+                          dilation=dilation,
+                          norm=True),
+                ConvBlock(out_channels,
+                          out_channels,
+                          dilation=dilation,
+                          norm=True))
 
             self.residual = nn.Sequential(
                 nn.Upsample(scale_factor=2),
-                ConvBlock(
-                    in_channels=in_channels,
-                    out_channels=out_channels,
-                    dilation=dilation,
-                ))
+                ConvBlock(in_channels=in_channels,
+                          out_channels=out_channels,
+                          dilation=dilation,
+                          norm=True))
         else:
             self.residual = nn.Sequential(
                 nn.Conv1d(in_channels,
