@@ -93,8 +93,8 @@ class DatasetCreator:
         """
 
         end = start + length
-        # mimic the amplitude range (MIDI norm [0, 255])
-        amp = np.tile(np.random.randint(100, 230), length)
+        # mimic the amplitude range (MIDI norm [0, 128])
+        amp = np.tile(np.random.randint(70, 128), length)
 
         #  hanning window
         # add expressive attack and release
@@ -156,6 +156,6 @@ if __name__ == '__main__':
     print("Build dataset")
     type_dataset = "test"
     type_lo = "mean"
-    d.build(10000, 5, type_lo)
+    d.build(100, 5, type_lo)
     print("Export dataset")
     d.export("data/", f"{type_dataset}-{type_lo}.pickle")
