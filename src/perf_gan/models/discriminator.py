@@ -25,7 +25,8 @@ class Discriminator(nn.Module):
             ConvBlock(in_channels=in_channels,
                       out_channels=out_channels,
                       dilation=dilation,
-                      norm=False)
+                      norm=False,
+                      dropout=0.75)
             for in_channels, out_channels, dilation in zip(
                 conv_channels[:-1], conv_channels[1:], dilations)
         ])

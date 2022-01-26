@@ -55,12 +55,13 @@ class ConvBlock(nn.Module):
 
         Returns:
             torch.Tensor: output contours
+        
         """
+        x = self.dp(x)
         x = self.conv(x)
         out = self.lr(x)
 
         if self.norm:
             out = self.bn(out)
-        #out = self.dp(out)
 
         return out
