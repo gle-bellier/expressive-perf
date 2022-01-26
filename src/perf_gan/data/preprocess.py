@@ -18,13 +18,11 @@ class Identity:
 
 class PitchTransform:
     def __init__(self, feature_range=(0, 1)):
-        self.m = None
-        self.M = None
+        self.m = 0
+        self.M = 127
         self.new_m, self.new_M = feature_range
 
     def fit(self, X):
-        self.m = torch.min(X)
-        self.M = torch.max(X)
         return self
 
     def transform(self, X, y=None):
@@ -38,14 +36,11 @@ class PitchTransform:
 
 class LoudnessTransform:
     def __init__(self, feature_range=(0, 1)):
-        self.m = None
-        self.M = None
+        self.m = 0
+        self.M = 127
         self.new_m, self.new_M = feature_range
 
     def fit(self, X):
-        self.m = torch.min(X)
-        self.M = torch.max(X)
-
         return self
 
     def transform(self, X, y=None):
