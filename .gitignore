@@ -4,3 +4,4 @@
 *.ipynb
 *.ts
 /runs
+/data/audio
