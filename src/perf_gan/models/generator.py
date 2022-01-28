@@ -104,4 +104,4 @@ class Generator(nn.Module):
         x = self.bottleneck(x)
         out = self.up_sampling(x)
 
-        return torch.tanh(out)
+        return out

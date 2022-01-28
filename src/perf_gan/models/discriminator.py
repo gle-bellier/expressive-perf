@@ -26,7 +26,7 @@ class Discriminator(nn.Module):
                       out_channels=out_channels,
                       dilation=dilation,
                       norm=False,
-                      dropout=0.75)
+                      dropout=0.5)
             for in_channels, out_channels, dilation in zip(
                 conv_channels[:-1], conv_channels[1:], dilations)
         ])
