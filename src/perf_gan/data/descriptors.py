@@ -3,7 +3,7 @@ import librosa as li
 import crepe
 
 
-def extract_loudness(signal, sampling_rate, block_size, n_fft=2048):
+def extract_lo(signal, sampling_rate, block_size, n_fft=2048):
     S = li.stft(
         signal,
         n_fft=n_fft,
@@ -22,7 +22,7 @@ def extract_loudness(signal, sampling_rate, block_size, n_fft=2048):
     return S
 
 
-def extract_pitch(signal, sampling_rate, block_size):
+def extract_f0(signal, sampling_rate, block_size):
     f0 = crepe.predict(
         signal,
         sampling_rate,
