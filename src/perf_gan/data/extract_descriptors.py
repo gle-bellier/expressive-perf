@@ -2,7 +2,7 @@ import librosa as li
 import numpy as np
 import torch
 
-from typing import Union
+from typing import Union, Tuple
 import os
 import numpy as np
 
@@ -122,7 +122,7 @@ class Extractor:
     def select(self,
                x: np.ndarray,
                samples_size=2048,
-               ratio=0.80) -> Union[torch.Tensor, torch.Tensor]:
+               ratio=0.80) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Select the f0 and loudness contours of the best chunks of the 
         input audio according to a multi-scale spectral loss computed on the
         reconstructed audio with DDSP.

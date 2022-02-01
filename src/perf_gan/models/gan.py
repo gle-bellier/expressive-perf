@@ -82,7 +82,24 @@ class PerfGAN(pl.LightningModule):
         """
         return self.gen(x)
 
-    def gen_step(self, u_contours, e_contours, gen_contours, onsets, offsets):
+    def gen_step(
+        self, u_contours: torch.Tensor, e_contours: torch.Tensor,
+        gen_contours: torch.Tensor, onsets: torch.Tensor, offsets: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """Compute generator loss according to criteron.
+        Expressive contours are considered the real data. In case of pitch and loudness 
+        regularization this function outputs non null pitch and loudness proper losses
+
+        Args:
+            u_contours (torch.Tensor): unexpressive contours
+            e_contours (torch.Tensor): expressive contours 
+            gen_contours (torch.Tensor): generated contours
+            onsets (torch.Tensor): onsets of the unexpressive contours
+            offsets (torch.Tensor): offsets of the unexpressive contours
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: generator loss, pitch loss,  loudness loss
+        """
 
         disc_e = self.disc(e_contours).view(-1)
         disc_gu = self.disc(gen_contours).view(-1)
@@ -112,7 +129,19 @@ class PerfGAN(pl.LightningModule):
 
         return gen_loss, pitch_loss, lo_loss
 
-    def disc_step(self, u_contours, e_contours, gen_contours):
+    def disc_step(self, u_contours: torch.Tensor, e_contours: torch.Tensor,
+                  gen_contours: torch.Tensor) -> torch.Tensor:
+        """Compute discriminator step with expressive contours as real data and generated
+        contours as fake ones.
+
+        Args:
+            u_contours (torch.Tensor): unexpressive contours
+            e_contours (torch.Tensor): expressive contours
+            gen_contours (torch.Tensor): generated contours
+
+        Returns:
+            torch.Tensor: dicriminator loss according to criteron
+        """
 
         # discriminate
         disc_e = self.disc(e_contours).view(-1)
