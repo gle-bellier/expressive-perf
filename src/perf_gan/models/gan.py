@@ -168,6 +168,10 @@ class PerfGAN(pl.LightningModule):
     def __midi2hz(self, x):
         return torch.pow(2, (x - 69) / 12) * 440
 
+    def __midi2dB(self, x):
+        # TODO : make more accurate converting
+        return (x / 127 - 1) * 96
+
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
         """Compute validation step (do some logging)
 
@@ -181,22 +185,27 @@ class PerfGAN(pl.LightningModule):
             u_contours, e_contours, _, _ = batch
             gen_contours = self.gen(u_contours)
 
-            u_f0, u_lo = u_contours[0].split(1, -2)
-            e_f0, e_lo = e_contours[0].split(1, -2)
-            g_f0, g_lo = gen_contours[0].split(1, -2)
+            # u_f0, u_lo = u_contours[0].split(1, -2)
+            # e_f0, e_lo = e_contours[0].split(1, -2)
+            # g_f0, g_lo = gen_contours[0].split(1, -2)
 
-            # inv_u_f0, inv_u_lo = self.dataset.inverse_transform(
-            #     u_contours).split(1, 1)
-            # inv_e_f0, inv_e_lo = self.dataset.inverse_transform(
-            #     e_contours).split(1, 1)
-            # inv_g_f0, inv_g_lo = self.dataset.inverse_transform(
-            #     gen_contours).split(1, 1)
+            # apply inverse transform
 
-            # u_f0, u_lo = self.__midi2hz(inv_u_f0[0]), inv_u_lo[0]
-            # e_f0, e_lo = self.__midi2hz(inv_e_f0[0]), inv_e_lo[0]
-            # g_f0, g_lo = self.__midi2hz(inv_g_f0[0]), inv_g_lo[0]
+            inv_u_f0, inv_u_lo = self.dataset.inverse_transform(
+                u_contours).split(1, 1)
+            inv_e_f0, inv_e_lo = self.dataset.inverse_transform(
+                e_contours).split(1, 1)
+            inv_g_f0, inv_g_lo = self.dataset.inverse_transform(
+                gen_contours).split(1, 1)
 
-            #convert frequencies
+            # convert midi to hz / db
+
+            u_f0, u_lo = self.__midi2hz(inv_u_f0[0]), self.__midi2dB(
+                inv_u_lo[0])
+            e_f0, e_lo = self.__midi2hz(inv_e_f0[0]), self.__midi2dB(
+                inv_e_lo[0])
+            g_f0, g_lo = self.__midi2hz(inv_g_f0[0]), self.__midi2dB(
+                inv_g_lo[0])
 
             if self.reg:
                 plt.plot(u_f0.squeeze().cpu().detach(), label="u_f0")
@@ -212,17 +221,17 @@ class PerfGAN(pl.LightningModule):
             plt.legend()
             self.logger.experiment.add_figure("lo", plt.gcf(), self.val_idx)
 
-            # if self.ddsp is not None:
-            #     g_f0 = g_f0.float().reshape(1, -1, 1)
-            #     g_lo = g_lo.float().reshape(1, -1, 1)
-            #     signal = self.ddsp(g_f0, g_lo)
-            #     signal = signal.reshape(-1).cpu().numpy()
-            #     self.logger.experiment.add_audio(
-            #         "generation",
-            #         signal,
-            #         self.val_idx,
-            #         16000,
-            #     )
+            if self.ddsp is not None:
+                g_f0 = g_f0.float().reshape(1, -1, 1)
+                g_lo = g_lo.float().reshape(1, -1, 1)
+                signal = self.ddsp(g_f0, g_lo)
+                signal = signal.reshape(-1).cpu().numpy()
+                self.logger.experiment.add_audio(
+                    "generation",
+                    signal,
+                    self.val_idx,
+                    16000,
+                )
 
     def configure_optimizers(self) -> Tuple:
         """Configure both generator and discriminator optimizers
@@ -268,12 +277,12 @@ if __name__ == "__main__":
     lr = 1e-3
     criteron = Hinge_loss()
     # init model
-    model = PerfGAN(g_down_channels=[2, 32, 64, 128, 512],
-                    g_up_channels=[1024, 512, 128, 64, 32, 2],
-                    g_down_dilations=[3, 1, 1, 1, 1],
-                    g_up_dilations=[3, 1, 1, 1, 1, 1],
+    model = PerfGAN(g_down_channels=[2, 32, 64, 128],
+                    g_up_channels=[512, 128, 64, 32, 2],
+                    g_down_dilations=[3, 1, 1, 1],
+                    g_up_dilations=[3, 1, 1, 1, 1],
                     d_conv_channels=[2, 64, 128, 512, 32, 1],
-                    d_dilations=[1, 1, 1, 1, 1, 1],
+                    d_dilations=[1, 1, 1, 1, 1],
                     d_h_dims=[n_sample, 128, 64, 1],
                     criteron=criteron,
                     regularization=False,
