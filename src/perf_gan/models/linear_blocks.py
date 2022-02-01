@@ -18,6 +18,14 @@ class LinBlock(nn.Module):
         self.lr = nn.LeakyReLU()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Compute forward pass for the linear block
+
+        Args:
+            x (torch.Tensor): input tensor
+
+        Returns:
+            torch.Tensor: output tensor
+        """
 
         x = self.linear(x)
         return self.lr(x)

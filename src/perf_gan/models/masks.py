@@ -7,6 +7,16 @@ from perf_gan.data.dataset import GANDataset
 
 
 def create_mask(x: list[torch.Tensor]) -> torch.Tensor:
+    """Create a list matrix of masks. A mask is generated for each note in
+    the input vector i.e ones between onset and offset and zeros 
+    everywhere else. 
+
+    Args:
+        x (list[torch.Tensor]): input contour (f0, lo, onset, offset)
+
+    Returns:
+        torch.Tensor: matrix of all the masks in the input vector
+    """
     onsets, offsets = x[-2:]
     masks = []
     # initialize a mask
