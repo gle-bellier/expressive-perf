@@ -4,85 +4,95 @@ import pickle as pickle
 
 
 class DatasetCreator:
-    def __init__(self, sr=160):
+    def __init__(self, path, filename):
         """Synthetic Dataset constructor. It aims at mimicking violin pitch and loudness contours
 
-        Args:
-            sr (int, optional): sampling rate. Defaults to 160.
         """
 
-        # unexpressive contours:
-        self.u_f0 = None
-        self.u_lo = None
-        # expressive contours:
-        self.e_f0 = None
-        self.e_l0 = None
-        # onsets and offsets:
-        self.onsets = None
-        self.offsets = None
+        self.path = path
+        self.filename = filename
 
-        self.samples_duration = None
-        self.sr = sr
-
-        self.n_intervals = 5
-        self.intervals = 1 / (np.power(2, np.arange(self.n_intervals)))
-        self.vibrato_f = 100
+        self.n_intervals = 6
+        self.intervals = 1 / (np.power(2, np.arange(3, self.n_intervals)))
+        self.vibrato_f = 1
         self.p_vibrato = 1.  # first we consider there is always a vibrato
         self.sparcity = .8
 
-    def build(self, n: int, duration: int, type_lo: str) -> None:
-        """Build the dataset composed of n samples of length duration (in s.)
+    def build(self, n: int, sample_length: int, type_lo: str) -> None:
 
-        Args:
-            n (int): number of samples in the dataset
-            duration (int): duration (in s.) of each samples
-        """
-        self.samples_duration = duration
+        for _ in range(n):
+            # initialize unexpressive contours:
+            u_f0 = np.zeros(sample_length)
+            u_lo = np.zeros(sample_length)
 
-        # initialize unexpressive contours:
-        self.u_f0 = np.zeros(n * duration * self.sr)
-        self.u_lo = np.zeros(n * duration * self.sr)
+            # initialize expressive contours:
+            e_f0 = np.zeros(sample_length)
+            e_lo = np.zeros(sample_length)
 
-        # initialize expressive contours:
-        self.e_f0 = np.zeros(n * duration * self.sr)
-        self.e_lo = np.zeros(n * duration * self.sr)
+            # initialize onsets and offsets
+            onsets = np.zeros(sample_length)
+            offsets = np.zeros(sample_length)
 
-        # initialize onsets and offsets
-        self.onsets = np.zeros(n * duration * self.sr)
-        self.offsets = np.zeros(n * duration * self.sr)
+            # create list of masks
+            mask = []
 
-        start = 0
+            start = 0
 
-        while start < duration * n * self.sr:
-            interval = np.random.choice(self.intervals)
-            length = int(interval * self.sr)
-            self.__build_pitch(start, length)
-            self.__build_lo(start, length, type=type_lo)
-            start += length
+            while start < sample_length - 1:
 
-    def __build_pitch(self, start: int, length: int) -> None:
+                # include silent notes
+                note_on = (np.random.random() < self.sparcity)
+                # we build a new note:
+                interval = np.random.choice(self.intervals)
+                end = min(start + int(interval * sample_length), sample_length)
+
+                if not note_on:
+                    # update cursor
+                    start = end
+                else:
+                    u_f0[start:end], e_f0[start:end] = self.__build_pitch(
+                        start, end)
+                    u_lo[start:end], e_lo[start:end] = self.__build_lo(
+                        start, end, type=type_lo)
+
+                    # update onsets and offsets:
+                    onsets[start], offsets[min(end, sample_length - 1)] = 1, 1
+
+                    # create mask and add it to the list
+                    m = np.ones_like(onsets)
+                    m[:start] -= 1
+                    m[end:] -= 1
+                    mask += [m]
+
+                    # update cursor
+                    start = end
+
+            # export sample
+            mask = np.array(mask)
+
+            self.__export(u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask)
+
+    def __build_pitch(self, start: int, end: int) -> None:
         """Generate the pitch contours for one sample
 
         Args:
             start (int): start index of the sample
             length (int): length of the sample
         """
-        end = start + length
 
         # mimic frequency range of the violin (G3 -> 4 octaves)
-        f = np.tile(np.random.randint(55, 55 + 4 * 12), length)
+        f = np.tile(np.random.randint(55, 55 + 4 * 12), end - start)
 
         # add some vibrato for expressive contours:
-        v = .5 * np.sin(np.arange(length) / (self.sr / self.vibrato_f))
+        v = .5 * np.sin(np.arange(end - start) / (self.vibrato_f))
         v = v * (np.random.random() < self.p_vibrato)
         # if hanning window
-        v *= np.hanning(length)
+        v *= np.hanning(end - start)
 
         # add to contours:
-        self.e_f0[start:end] = (f + v)[:len(self.e_f0[start:end])]
-        self.u_f0[start:end] = f[:len(self.u_f0[start:end])]
+        return f, (f + v)
 
-    def __build_lo(self, start: int, length: int, type="peak") -> None:
+    def __build_lo(self, start: int, end: int, type="peak") -> None:
         """Generate the loudness contours for one sample
 
         Args:
@@ -92,7 +102,7 @@ class DatasetCreator:
             peak and mean are implemented. Defaults to "peak".
         """
 
-        end = start + length
+        length = end - start
         # mimic the amplitude range (MIDI norm [0, 128])
         amp = np.tile(np.random.randint(70, 128), length)
 
@@ -110,28 +120,16 @@ class DatasetCreator:
         release = np.logspace(np.log(amp[0]), 1, length // 4, base=np.exp(1))
         e_lo = np.concatenate((attack, amp[:length // 2], release))
 
-        # include silent notes
-        note_on = (np.random.random() < self.sparcity)
-
-        # create contours:
-        self.e_lo[start:end] = e_lo[:len(self.e_lo[start:end])] * note_on
-
         if type == "mean":
-            self.u_lo[start:end] = np.tile(np.mean(e_lo * note_on),
-                                           len(self.e_lo[start:end]))
+            u_lo = np.tile(np.mean(e_lo), length)
         elif type == "peak":
-            self.u_lo[start:end] = np.tile(np.max(e_lo * note_on),
-                                           len(self.e_lo[start:end]))
+            u_lo = np.tile(np.max(e_lo), length)
         else:
             raise ValueError
 
-        # update onsets and offsets:
-        if note_on:
-            self.onsets[start] = 1
-            if end < len(self.offsets):
-                self.offsets[end] = 1
+        return u_lo[:length], e_lo[:length]
 
-    def export(self, path: str, filename: str) -> None:
+    def __export(self, u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask) -> None:
         """Exporting the dataset to a pickle file 
 
         Args:
@@ -139,23 +137,21 @@ class DatasetCreator:
             filename (str): exported file name
         """
         data = {
-            "u_f0": self.u_f0,
-            "u_lo": self.u_lo,
-            "e_f0": self.e_f0,
-            "e_lo": self.e_lo,
-            "onsets": self.onsets,
-            "offsets": self.offsets
+            "u_f0": u_f0,
+            "u_lo": u_lo,
+            "e_f0": e_f0,
+            "e_lo": e_lo,
+            "onsets": onsets,
+            "offsets": offsets,
+            "mask": mask
         }
 
-        with open(path + filename, "wb") as file_out:
+        with open(self.path + self.filename, "ab+") as file_out:
             pickle.dump(data, file_out)
 
 
 if __name__ == '__main__':
-    d = DatasetCreator()
+    d = DatasetCreator("data/", "dataset_test.pickle")
     print("Build dataset")
-    type_dataset = "test"
     type_lo = "mean"
-    d.build(100, 5, type_lo)
-    print("Export dataset")
-    d.export("data/", f"{type_dataset}-{type_lo}.pickle")
+    d.build(100, 1024, type_lo)
