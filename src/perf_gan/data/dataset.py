@@ -5,38 +5,23 @@ import pickle
 import numpy as np
 from typing import List, Union
 from random import randint
+import re
 
-from perf_gan.data.preprocess import Identity
+from perf_gan.data.preprocess import Identity, PitchTransform, LoudnessTransform
 
 
 class GANDataset(Dataset):
-    def __init__(self,
-                 path: str,
-                 n_sample=2048,
-                 list_transforms=None,
-                 eval=False):
+    def __init__(self, path: str, list_transforms=None, eval=False):
         """Create the Dataset object relative to the data file (given with path)
 
         Args:
             path (str): path to the data file
-            n_sample (int, optional): length of the samples. Defaults to 2048.
             list_transforms (list, optional): list of the transforms to be applied to the dataset.
             Defaults to None.
         """
 
-        print("Loading Dataset...")
-        with open(path, "rb") as dataset:
-            dataset = pickle.load(dataset)
-
-        self.u_f0 = torch.Tensor(dataset["u_f0"])
-        self.e_f0 = torch.Tensor(dataset["e_f0"])
-        self.u_lo = torch.Tensor(dataset["u_lo"])
-        self.e_lo = torch.Tensor(dataset["e_lo"])
-        self.onsets = torch.Tensor(dataset["onsets"])
-        self.offsets = torch.Tensor(dataset["offsets"])
-
-        self.N = len(dataset["u_f0"])
-        self.n_sample = n_sample
+        self.path = path
+        self.dataset = open(path, "rb")
 
         # add transformations applied to data
         if list_transforms is None:
@@ -44,13 +29,11 @@ class GANDataset(Dataset):
         else:
             self.list_transforms = list_transforms
 
-        # build scalers
-        self.scalers = self.__fit_transforms()
         self.eval = eval
 
         print("Dataset loaded.")
 
-    def __fit_transforms(self) -> List[object]:
+    def __fit_transforms(self, u_f0, u_lo, e_f0, e_lo) -> List[object]:
         """Fit the two transforms to the contours
 
         Returns:
@@ -59,15 +42,15 @@ class GANDataset(Dataset):
         scalers = []
 
         # pitch
-        contour = torch.cat((self.u_f0, self.e_f0), -1)
+        contour = np.concatenate((u_f0, e_f0))
         transform = self.list_transforms[0]
-        sc = transform[0](**transform[1]).fit(contour)
+        sc = transform[0](**transform[1]).fit(contour.reshape(-1, 1))
         scalers.append(sc)
 
         # loudness
-        contour = torch.cat((self.u_lo, self.e_lo), -1)
+        contour = np.concatenate((u_lo, e_lo))
         transform = self.list_transforms[1]
-        sc = transform[0](**transform[1]).fit(contour)
+        sc = transform[0](**transform[1]).fit(contour.reshape(-1, 1))
         scalers.append(sc)
 
         return scalers
@@ -83,7 +66,7 @@ class GANDataset(Dataset):
         """
 
         f0, lo = torch.split(x, 1, -2)
-        # Inverse transforms
+        # transforms
         f0 = self.scalers[0].transform(f0)
         lo = self.scalers[1].transform(lo)
 
@@ -112,7 +95,7 @@ class GANDataset(Dataset):
         Returns:
             [int]: number of samples in the dataset
         """
-        return self.N // self.n_sample
+        return int(re.split("/|_|\.", self.path)[-2])
 
     def __getitem__(self, idx: int) -> List[torch.Tensor]:
         """Select the ith sample from the dataset
@@ -123,35 +106,50 @@ class GANDataset(Dataset):
         Returns:
             list[torch.Tensor]: list of contours (pitch, loudness, onsets, offsets)
         """
-        N = self.n_sample
-        idx *= N
-        # add jitter during training only
-        if not self.eval:
-            idx += randint(0, N // 10)
 
-        idx = max(idx, 0)
-        idx = min(idx, len(self) * self.n_sample - self.n_sample)
+        sample = pickle.load(self.dataset)
 
-        # select the sample contours
-        s_u_f0 = self.u_f0[idx:idx + self.n_sample]
-        s_u_lo = self.u_lo[idx:idx + self.n_sample]
-        s_e_f0 = self.e_f0[idx:idx + self.n_sample]
-        s_e_lo = self.e_lo[idx:idx + self.n_sample]
-        s_onsets = self.onsets[idx:idx + self.n_sample]
-        s_offsets = self.offsets[idx:idx + self.n_sample]
+        u_f0 = torch.Tensor(sample["u_f0"])
+        u_lo = torch.Tensor(sample["u_lo"])
+
+        e_f0 = torch.Tensor(sample["e_f0"])
+        e_lo = torch.Tensor(sample["e_lo"])
+
+        self.scalers = self.__fit_transforms(u_f0, u_lo, e_f0, e_lo)
+
+        s_onsets = torch.Tensor(sample["onsets"]).unsqueeze(0)
+        s_offsets = torch.Tensor(sample["offsets"]).unsqueeze(0)
+
+        mask = torch.Tensor(sample["mask"])
 
         # concatenate the contours into unexpressive/expressive tensors
         u_contours = torch.cat([
-            s_u_f0.unsqueeze(0),
-            s_u_lo.unsqueeze(0),
+            u_f0.unsqueeze(0),
+            u_lo.unsqueeze(0),
         ], 0)
 
         e_contours = torch.cat([
-            s_e_f0.unsqueeze(0),
-            s_e_lo.unsqueeze(0),
+            e_f0.unsqueeze(0),
+            e_lo.unsqueeze(0),
         ], 0)
 
         return [
             self.transform(u_contours),
-            self.transform(e_contours), s_onsets, s_offsets
+            self.transform(e_contours), s_onsets, s_offsets, mask
         ]
+
+
+if __name__ == '__main__':
+    l = [(PitchTransform, {
+        "feature_range": (-1, 1)
+    }), (LoudnessTransform, {
+        "feature_range": (-1, 1)
+    })]
+
+    d = GANDataset(path="data/dataset_train_1000.pickle", list_transforms=l)
+    # loop over the 4 components (u contours, e contours, onsets, offsets)
+    for i in range(10):
+        sample = d[0]
+        print("New sample")
+        for elt in sample:
+            print(elt.shape)

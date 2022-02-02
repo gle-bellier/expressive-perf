@@ -151,7 +151,8 @@ class DatasetCreator:
 
 
 if __name__ == '__main__':
-    d = DatasetCreator("data/", "dataset_test.pickle")
+    size = 100
+    d = DatasetCreator("data/", f"dataset_test_{size}.pickle")
     print("Build dataset")
     type_lo = "mean"
     d.build(100, 1024, type_lo)
