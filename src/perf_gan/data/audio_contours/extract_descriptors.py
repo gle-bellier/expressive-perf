@@ -9,7 +9,7 @@ import numpy as np
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import tensorflow as tf
 
-from perf_gan.data.descriptors import extract_lo, extract_f0
+from perf_gan.data.audio_contours.descriptors import extract_lo, extract_f0
 
 
 class Extractor:

@@ -288,14 +288,14 @@ if __name__ == "__main__":
         "feature_range": (-1, 1)
     })]
     n_sample = 1024
-    train_set = GANDataset(path="data/train-mean.pickle",
+    train_set = GANDataset(path="data/dataset_train_1000.pickle",
                            n_sample=n_sample,
                            list_transforms=list_transforms)
     train_dataloader = DataLoader(dataset=train_set,
                                   batch_size=16,
                                   shuffle=True,
                                   num_workers=8)
-    test_set = GANDataset(path="data/test-mean.pickle",
+    test_set = GANDataset(path="data/dataset_test_100².pickle",
                           n_sample=n_sample,
                           list_transforms=list_transforms)
     test_dataloader = DataLoader(dataset=test_set,
