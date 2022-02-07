@@ -8,7 +8,8 @@ from typing import Tuple
 
 class MidiReader:
     def __init__(self, sample_len=1024, frame_rate=100):
-        """Useful tool to extract contours from a MIDI file
+        """Useful tool to extract contours from a MIDI file. Be careful in the choice of sample_len: it must
+        be greater than the length of the longest silence.
 
         Args:
             sample_len (int, optional): length of the MIDI samples. Defaults to 2048.
@@ -150,7 +151,7 @@ class MidiReader:
 
 if __name__ == "__main__":
 
-    m = MidiReader(sample_len=500)
+    m = MidiReader(sample_len=2048)
     f0, lo, onsets, offsets, mask = m.get_contours("data/midi/midi/test.mid")
 
     for f, l, on, off, ma in zip(f0, lo, onsets, offsets, mask):
