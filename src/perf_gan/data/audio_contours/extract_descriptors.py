@@ -158,13 +158,3 @@ class Extractor:
 
         print(f"Size ratio : {len(select_f0)/len(f0)}")
         return torch.tensor(f0), torch.tensor(lo)
-
-
-path = "data/audio/"
-filename = "sample1.wav"
-sr = 16000
-
-audio, fs = li.load(path + filename, sr=sr)
-# audio = audio[:16000]
-ext = Extractor(sr=sr)
-f0, lo = ext.select(audio)
