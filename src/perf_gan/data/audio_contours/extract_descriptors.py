@@ -22,7 +22,7 @@ class Extractor:
             sr (int, optional): sampling rate. Defaults to 16000.
             block_size (int, optional): window size for f0 and loudness computing. Defaults to 160.
         """
-        self.filename = filename
+
         self.sr = sr
         self.block_size = block_size
         self.ddsp = torch.jit.load("ddsp_flute.ts").eval()
@@ -121,7 +121,7 @@ class Extractor:
 
     def select(self,
                x: np.ndarray,
-               samples_size=2048,
+               sample_len=2048,
                ratio=0.80) -> Tuple[torch.Tensor, torch.Tensor]:
         """ Select the f0 and loudness contours of the best chunks of the 
         input audio according to a multi-scale spectral loss computed on the
@@ -129,7 +129,7 @@ class Extractor:
 
         Args:
             x (np.ndarray): input audio, raw waveform.
-            samples_size (int, optional): size of each audio chunks under study. Defaults to 2048.
+            sample_len (int, optional): size of each audio chunks under study. Defaults to 2048.
             ratio (float, optional): ratio of audio chunks to keep, e.g 0.7 means we 
             keep around 70% of the original audio. Defaults to 0.80.
 
@@ -140,21 +140,23 @@ class Extractor:
         f0, lo = self.extract_f0_lo(x)
         resynth = self.reconstruct(f0, lo)
 
-        losses = self.scan(torch.tensor(x), resynth, samples_size)
+        losses = self.scan(torch.tensor(x), resynth, sample_len)
         # compute indices of samples to keep
         idx = torch.sort(losses)[1][:int(len(losses) * ratio)]
         # compute corresponding f0, lo chunks indices
-        contours_idx = torch.floor(idx * (samples_size / self.block_size))
+        contours_idx = torch.floor(idx * (sample_len / self.block_size))
 
         select_f0, select_lo = np.empty(0), np.empty(0)
         for i in contours_idx:
 
             select_f0 = np.concatenate(
                 (select_f0,
-                 f0[int(i):int(i + (samples_size / self.block_size))]))
+                 f0[int(i):int(i + (sample_len / self.block_size))]))
             select_lo = np.concatenate(
                 (select_lo,
-                 lo[int(i):int(i * (samples_size / self.block_size))]))
+                 lo[int(i):int(i * (sample_len / self.block_size))]))
 
-        print(f"Size ratio : {len(select_f0)/len(f0)}")
-        return torch.tensor(f0), torch.tensor(lo)
+        f0 = np.split(f0, np.arange(sample_len, len(f0), sample_len))
+        lo = np.split(lo, np.arange(sample_len, len(lo), sample_len))
+
+        return f0[:-1], lo[:-1]

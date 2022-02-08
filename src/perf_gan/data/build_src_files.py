@@ -1,6 +1,7 @@
 from os import listdir
 from os.path import isfile, join
 from typing import List
+import librosa as li
 import pickle
 
 from perf_gan.data.midi_contours.midi2contours import MidiReader
@@ -58,8 +59,27 @@ class Builder:
                 }
                 self.__export(data, self.save_midi_path)
 
+    def __build_audio(self, sr=1600, sample_len=2048):
+        # get list of audio files
+
+        files = self.__get_files_dir(self.audio_path)
+
+        for file in files:
+            audio, fs = li.load(self.audio_path + "/" + file, sr=sr)
+            ext = Extractor(sr=sr)
+            f0, lo = ext.select(audio, sample_len)
+
+            # export each sample
+            for i in range(len(f0)):
+                data = {
+                    "f0": f0[i],
+                    "lo": lo[i],
+                }
+                self.__export(data, self.save_audio_path)
+
     def build(self, sample_len):
         self.__buid_midi(sample_len)
+        self.__build_audio(sample_len)
 
 
 if __name__ == "__main__":
