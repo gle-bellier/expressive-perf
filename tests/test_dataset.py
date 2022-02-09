@@ -5,7 +5,7 @@ import numpy as np
 from perf_gan.data.make_dataset import DatasetCreator
 
 from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
-from perf_gan.data.dataset import GANDataset
+from perf_gan.data.synth_dataset import GANDataset
 
 
 def test_dataset_items():

@@ -2,7 +2,7 @@ import pytest
 import torch
 from torch.utils.data import DataLoader
 from perf_gan.losses.midi_loss import MidiLoss
-from perf_gan.data.dataset import GANDataset
+from perf_gan.data.synth_dataset import GANDataset
 import matplotlib.pyplot as plt
 
 dataset = GANDataset("data/dataset.pickle", n_sample=1024)

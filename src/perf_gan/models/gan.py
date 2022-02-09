@@ -13,7 +13,7 @@ from typing import List, Tuple
 from perf_gan.models.generator import Generator
 from perf_gan.models.discriminator import Discriminator
 
-from perf_gan.data.dataset import GANDataset
+from perf_gan.data.synth_dataset import GANDataset
 from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
 
 from perf_gan.losses.lsgan_loss import LSGAN_loss
