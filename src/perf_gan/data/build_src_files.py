@@ -45,6 +45,7 @@ class Builder:
         midi_reader = MidiReader(sample_len=sample_len)
 
         for file in files:
+            print("Extracting contours from : ", file)
             f0, lo, onsets, offsets, mask = midi_reader.get_contours(
                 self.midi_path + '/' + file)
 
@@ -65,6 +66,7 @@ class Builder:
         files = self.__get_files_dir(self.audio_path)
 
         for file in files:
+            print("Extracting contours from ", file)
             audio, fs = li.load(self.audio_path + "/" + file, sr=sr)
             ext = Extractor(sr=sr)
 
