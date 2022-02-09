@@ -17,12 +17,30 @@ class Merger:
             except EOFError:
                 pass
 
-    def merge(self):
-        audio_contours = [c for c in self.__read_from_pickle(self.audio_path)]
-        midi_contours = [c for c in self.__read_from_pickle(self.midi_path)]
-        print(midi_contours[0])
+    def merge(self, path: str) -> None:
+        """Merge the audio and MIDI contours dataset files
 
-        print(len(midi_contours))
+        Args:
+            path (str): path to the saving file for complete dataset
+        """
+        midi_contours = [c for c in self.__read_from_pickle(self.midi_path)]
+        audio_contours = [c for c in self.__read_from_pickle(self.audio_path)]
+
+        # compute the max number of complete samples we can generate
+        nb_samples = min(len(audio_contours), len(midi_contours))
+        for u_c, e_c in zip(midi_contours[:nb_samples],
+                            audio_contours[:nb_samples]):
+            data = {
+                "u_f0": u_c["f0"],
+                "u_lo": u_c["lo"],
+                "e_f0": e_c["f0"],
+                "e_lo": e_c["lo"],
+                "onsets": u_c["onsets"],
+                "offsets": u_c["offsets"],
+                "mask": u_c["mask"]
+            }
+            with open(path, "ab+") as file_out:
+                pickle.dump(data, file_out)
 
 
 def main():
@@ -31,7 +49,7 @@ def main():
     midi_path = "data/midi/contours/midi_contours.pickle"
     m = Merger(midi_path, audio_path)
 
-    m.merge()
+    m.merge("data/dataset.pickle")
 
 
 if __name__ == '__main__':
