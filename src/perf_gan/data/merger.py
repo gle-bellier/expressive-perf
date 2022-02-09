@@ -17,17 +17,20 @@ class Merger:
             except EOFError:
                 pass
 
-    def merge(self, path: str) -> None:
+    def merge(self, path: str, verbose=True) -> None:
         """Merge the audio and MIDI contours dataset files
 
         Args:
             path (str): path to the saving file for complete dataset
+            verbose (bool, optional): if True print the steps files merging. Defaults to True.
         """
         midi_contours = [c for c in self.__read_from_pickle(self.midi_path)]
         audio_contours = [c for c in self.__read_from_pickle(self.audio_path)]
 
         # compute the max number of complete samples we can generate
         nb_samples = min(len(audio_contours), len(midi_contours))
+
+        print(f"Merging two datasets of size {nb_samples} samples")
         for u_c, e_c in zip(midi_contours[:nb_samples],
                             audio_contours[:nb_samples]):
             data = {
