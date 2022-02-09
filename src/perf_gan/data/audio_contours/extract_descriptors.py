@@ -15,17 +15,18 @@ from perf_gan.data.audio_contours.descriptors import extract_lo, extract_f0
 class Extractor:
     """Contours extraction tools 
     """
-    def __init__(self, sr=16000, block_size=160) -> None:
+    def __init__(self, sr=16000, block_size=160, ddsp=None) -> None:
         """Initialize extractor tool.
 
         Args:
             sr (int, optional): sampling rate. Defaults to 16000.
             block_size (int, optional): window size for f0 and loudness computing. Defaults to 160.
+            ddsp ([type], optional): ddsp module used for reconstruction. Defaults to None.
         """
 
         self.sr = sr
         self.block_size = block_size
-        self.ddsp = torch.jit.load("ddsp_flute.ts").eval()
+        self.ddsp = ddsp
 
     def extract_f0_lo(
             self, audio: torch.Tensor) -> Union[torch.Tensor, torch.Tensor]:
@@ -138,25 +139,32 @@ class Extractor:
         """
 
         f0, lo = self.extract_f0_lo(x)
-        resynth = self.reconstruct(f0, lo)
 
-        losses = self.scan(torch.tensor(x), resynth, sample_len)
-        # compute indices of samples to keep
-        idx = torch.sort(losses)[1][:int(len(losses) * ratio)]
-        # compute corresponding f0, lo chunks indices
-        contours_idx = torch.floor(idx * (sample_len / self.block_size))
+        if self.ddsp is not None:
+            resynth = self.reconstruct(f0, lo)
 
-        select_f0, select_lo = np.empty(0), np.empty(0)
-        for i in contours_idx:
+            losses = self.scan(torch.tensor(x), resynth, sample_len)
+            # compute indices of samples to keep
+            idx = torch.sort(losses)[1][:int(len(losses) * ratio)]
+            # compute corresponding f0, lo chunks indices
+            contours_idx = torch.floor(idx * (sample_len / self.block_size))
 
-            select_f0 = np.concatenate(
-                (select_f0,
-                 f0[int(i):int(i + (sample_len / self.block_size))]))
-            select_lo = np.concatenate(
-                (select_lo,
-                 lo[int(i):int(i * (sample_len / self.block_size))]))
+            select_f0, select_lo = np.empty(0), np.empty(0)
+            for i in contours_idx:
 
-        f0 = np.split(f0, np.arange(sample_len, len(f0), sample_len))
-        lo = np.split(lo, np.arange(sample_len, len(lo), sample_len))
+                select_f0 = np.concatenate(
+                    (select_f0,
+                     f0[int(i):int(i + (sample_len / self.block_size))]))
+                select_lo = np.concatenate(
+                    (select_lo,
+                     lo[int(i):int(i * (sample_len / self.block_size))]))
+        else:
+            select_f0 = f0
+            select_lo = lo
+
+        f0 = np.split(select_f0,
+                      np.arange(sample_len, len(select_f0), sample_len))
+        lo = np.split(select_lo,
+                      np.arange(sample_len, len(select_lo), sample_len))
 
         return f0[:-1], lo[:-1]
