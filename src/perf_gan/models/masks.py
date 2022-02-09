@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 import seaborn as sns
 
-from perf_gan.data.synth_dataset import GANDataset
+from perf_gan.data.synth_dataset import SynthDataset
 
 
 def create_mask(x: list[torch.Tensor]) -> torch.Tensor:
@@ -37,7 +37,7 @@ def create_mask(x: list[torch.Tensor]) -> torch.Tensor:
 
 if __name__ == '__main__':
     transforms = [(StandardScaler, {}), (MinMaxScaler, {})]
-    dataset = GANDataset("data/dataset.pickle", 160 * 5, transforms)
+    dataset = SynthDataset("data/dataset.pickle", 160 * 5, transforms)
     dataset.transform()
     x = dataset[0]
     mask = create_mask(x)

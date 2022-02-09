@@ -10,7 +10,7 @@ from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
 from perf_gan.models.generator import Generator
 from perf_gan.models.discriminator import Discriminator
 
-from perf_gan.data.synth_dataset import GANDataset
+from perf_gan.data.synth_dataset import SynthDataset
 from perf_gan.losses.lsgan_loss import LSGAN_loss
 from perf_gan.losses.hinge_loss import Hinge_loss
 
@@ -27,9 +27,9 @@ list_transforms = [(PitchTransform, {
 }), (LoudnessTransform, {
     "feature_range": (-1, 1)
 })]
-dataset = GANDataset(path="data/dataset.pickle",
-                     n_sample=1024,
-                     list_transforms=list_transforms)
+dataset = SynthDataset(path="data/dataset.pickle",
+                       n_sample=1024,
+                       list_transforms=list_transforms)
 
 data = DataLoader(dataset=dataset, batch_size=32, shuffle=True)
 

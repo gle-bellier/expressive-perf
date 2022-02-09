@@ -5,7 +5,7 @@ import numpy as np
 from perf_gan.data.make_dataset import DatasetCreator
 
 from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
-from perf_gan.data.synth_dataset import GANDataset
+from perf_gan.data.synth_dataset import SynthDataset
 
 
 def test_dataset_items():
@@ -17,7 +17,7 @@ def test_dataset_items():
         "feature_range": (-1, 1)
     })]
 
-    d = GANDataset(path="data/dataset_train_1000.pickle", list_transforms=l)
+    d = SynthDataset(path="data/dataset_train_1000.pickle", list_transforms=l)
     # loop over the 4 components (u contours, e contours, onsets, offsets)
     for idx in range(4):
         item = d[idx]
@@ -32,7 +32,7 @@ def test_dataset_items_range():
     }), (LoudnessTransform, {
         "feature_range": (-1, 1)
     })]
-    d = GANDataset(path="data/dataset_train_1000.pickle", list_transforms=l)
+    d = SynthDataset(path="data/dataset_train_1000.pickle", list_transforms=l)
 
     e_lo = d[0][1][1]
     assert torch.min(e_lo) >= -1 and torch.max(e_lo) <= 1
@@ -47,7 +47,7 @@ def test_dataset_inv_transform():
     }), (LoudnessTransform, {
         "feature_range": (-1, 1)
     })]
-    d = GANDataset(path="data/dataset_train_1000.pickle")
+    d = SynthDataset(path="data/dataset_train_1000.pickle")
 
     n = 0
     for i in range(50):

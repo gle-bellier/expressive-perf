@@ -10,7 +10,7 @@ import re
 from perf_gan.data.preprocess import Identity, PitchTransform, LoudnessTransform
 
 
-class GANDataset(Dataset):
+class SynthDataset(Dataset):
     def __init__(self, path: str, list_transforms=None, eval=False):
         """Create the Dataset object relative to the data file (given with path)
 
@@ -146,7 +146,7 @@ if __name__ == '__main__':
         "feature_range": (-1, 1)
     })]
 
-    d = GANDataset(path="data/dataset_train_1000.pickle", list_transforms=l)
+    d = SynthDataset(path="data/dataset_train_1000.pickle", list_transforms=l)
     # loop over the 4 components (u contours, e contours, onsets, offsets)
     for i in range(10):
         sample = d[0]

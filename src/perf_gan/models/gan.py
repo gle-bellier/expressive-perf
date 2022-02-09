@@ -13,7 +13,7 @@ from typing import List, Tuple
 from perf_gan.models.generator import Generator
 from perf_gan.models.discriminator import Discriminator
 
-from perf_gan.data.synth_dataset import GANDataset
+from perf_gan.data.synth_dataset import SynthDataset
 from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
 
 from perf_gan.losses.lsgan_loss import LSGAN_loss
@@ -288,16 +288,16 @@ if __name__ == "__main__":
         "feature_range": (-1, 1)
     })]
     n_sample = 1024
-    train_set = GANDataset(path="data/dataset_train_1000.pickle",
-                           n_sample=n_sample,
-                           list_transforms=list_transforms)
+    train_set = SynthDataset(path="data/dataset_train_1000.pickle",
+                             n_sample=n_sample,
+                             list_transforms=list_transforms)
     train_dataloader = DataLoader(dataset=train_set,
                                   batch_size=16,
                                   shuffle=True,
                                   num_workers=8)
-    test_set = GANDataset(path="data/dataset_test_100².pickle",
-                          n_sample=n_sample,
-                          list_transforms=list_transforms)
+    test_set = SynthDataset(path="data/dataset_test_100².pickle",
+                            n_sample=n_sample,
+                            list_transforms=list_transforms)
     test_dataloader = DataLoader(dataset=test_set,
                                  batch_size=16,
                                  shuffle=True,
