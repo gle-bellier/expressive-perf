@@ -59,7 +59,7 @@ class Builder:
                 }
                 self.__export(data, self.save_midi_path)
 
-    def __build_audio(self, sr=1600, sample_len=2048):
+    def __build_audio(self, sample_len=2048, sr=1600):
         # get list of audio files
 
         files = self.__get_files_dir(self.audio_path)
@@ -67,6 +67,7 @@ class Builder:
         for file in files:
             audio, fs = li.load(self.audio_path + "/" + file, sr=sr)
             ext = Extractor(sr=sr)
+
             f0, lo = ext.select(audio, sample_len)
 
             # export each sample
@@ -78,8 +79,8 @@ class Builder:
                 self.__export(data, self.save_audio_path)
 
     def build(self, sample_len):
-        self.__buid_midi(sample_len)
-        self.__build_audio(sample_len)
+        self.__buid_midi(sample_len=sample_len)
+        self.__build_audio(sample_len=sample_len)
 
 
 if __name__ == "__main__":
