@@ -28,7 +28,7 @@ class Merger:
         midi_sample_normal = scaler_midi.transform(
             midi_lo_sample.reshape(-1, 1))
         # apply inverse transform to map normal distribution to db distribution
-        db_sample = scaler_db.transform(midi_sample_normal).squeeze()
+        db_sample = scaler_db.inverse_transform(midi_sample_normal).squeeze()
 
         print("db_sample size ", db_sample.shape)
 
@@ -65,6 +65,7 @@ class Merger:
             print(f"Merged dataset contains {nb_samples} samples")
         for u_c, e_c in zip(midi_contours[:nb_samples],
                             audio_contours[:nb_samples]):
+
             data = {
                 "u_f0": u_c["f0"],
                 "u_lo": self.__midi2db(u_c["lo"], scaler_midi, scaler_db),
