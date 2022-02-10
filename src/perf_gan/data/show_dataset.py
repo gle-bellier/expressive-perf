@@ -43,6 +43,6 @@ class Visualizer:
 
 
 if __name__ == '__main__':
-    v = Visualizer("data/dataset_test_todelete.pickle")
+    v = Visualizer("data/dataset.pickle")
 
     v.show(3)
