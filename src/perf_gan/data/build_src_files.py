@@ -60,7 +60,7 @@ class Builder:
                 }
                 self.__export(data, self.save_midi_path)
 
-    def __build_audio(self, sample_len=2048, sr=1600):
+    def __build_audio(self, sample_len=2048, sr=16000):
         # get list of audio files
 
         files = self.__get_files_dir(self.audio_path)

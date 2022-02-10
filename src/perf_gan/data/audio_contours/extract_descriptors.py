@@ -138,7 +138,9 @@ class Extractor:
             Union[torch.Tensor, torch.Tensor]: f0 and loudness contours
         """
 
+        print("Audio length : ", x.shape)
         f0, lo = self.extract_f0_lo(x)
+        print("f0 length : ", f0.shape)
 
         if self.ddsp is not None:
             resynth = self.reconstruct(f0, lo)

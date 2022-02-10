@@ -45,4 +45,4 @@ class Visualizer:
 if __name__ == '__main__':
     v = Visualizer("data/dataset.pickle")
 
-    v.show(3)
+    v.show(10)

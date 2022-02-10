@@ -30,8 +30,6 @@ class Merger:
         # apply inverse transform to map normal distribution to db distribution
         db_sample = scaler_db.inverse_transform(midi_sample_normal).squeeze()
 
-        print("db_sample size ", db_sample.shape)
-
         return db_sample
 
     def merge(self, path: str, verbose=True) -> None:
