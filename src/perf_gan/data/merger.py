@@ -1,4 +1,6 @@
 import pickle
+import numpy as np
+from sklearn.preprocessing import QuantileTransformer
 
 
 class Merger:
@@ -17,6 +19,21 @@ class Merger:
             except EOFError:
                 pass
 
+    def __hz2midi(self, f):
+        return 12 * np.log(f / 440) + 69
+
+    def __midi2db(self, midi_lo_sample, scaler_midi, scaler_db):
+
+        # map midi distribution to normal distribution
+        midi_sample_normal = scaler_midi.transform(
+            midi_lo_sample.reshape(-1, 1))
+        # apply inverse transform to map normal distribution to db distribution
+        db_sample = scaler_db.transform(midi_sample_normal).squeeze()
+
+        print("db_sample size ", db_sample.shape)
+
+        return db_sample
+
     def merge(self, path: str, verbose=True) -> None:
         """Merge the audio and MIDI contours dataset files
 
@@ -27,16 +44,31 @@ class Merger:
         midi_contours = [c for c in self.__read_from_pickle(self.midi_path)]
         audio_contours = [c for c in self.__read_from_pickle(self.audio_path)]
 
+        midi_lo = np.concatenate([c["lo"]
+                                  for c in midi_contours]).reshape(-1, 1)
+        db_lo = np.concatenate([c["lo"]
+                                for c in audio_contours]).reshape(-1, 1)
+
+        # fit scaler to  midi distribution
+        qt_midi = QuantileTransformer(n_quantiles=128)
+        scaler_midi = qt_midi.fit(midi_lo)
+
+        # fit scaler to the db distribution
+        qt_db = QuantileTransformer(n_quantiles=128)
+        scaler_db = qt_db.fit(db_lo)
+
         # compute the max number of complete samples we can generate
         nb_samples = min(len(audio_contours), len(midi_contours))
-
-        print(f"Merging two datasets of size {nb_samples} samples")
+        if verbose:
+            print(f"Audio dataset contains {len(audio_contours)} samples")
+            print(f"Midi dataset contains {len(midi_contours)} samples")
+            print(f"Merged dataset contains {nb_samples} samples")
         for u_c, e_c in zip(midi_contours[:nb_samples],
                             audio_contours[:nb_samples]):
             data = {
                 "u_f0": u_c["f0"],
-                "u_lo": u_c["lo"],
-                "e_f0": e_c["f0"],
+                "u_lo": self.__midi2db(u_c["lo"], scaler_midi, scaler_db),
+                "e_f0": self.__hz2midi(e_c["f0"]),
                 "e_lo": e_c["lo"],
                 "onsets": u_c["onsets"],
                 "offsets": u_c["offsets"],
