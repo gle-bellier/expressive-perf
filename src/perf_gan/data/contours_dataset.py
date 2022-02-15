@@ -53,14 +53,14 @@ class ContoursDataset(Dataset):
 
         # pitch
 
-        contour = np.concatenate((np.concatenate(u_f0), np.concatenate(e_f0)))
+        contour = torch.cat([torch.cat(u_f0), torch.cat(e_f0)])
 
         transform = self.list_transforms[0]
         sc = transform[0](**transform[1]).fit(contour.reshape(-1, 1))
         scalers.append(sc)
 
         # loudness
-        contour = np.concatenate((np.concatenate(u_lo), np.concatenate(e_lo)))
+        contour = torch.cat([torch.cat(u_lo), torch.cat(e_lo)])
         transform = self.list_transforms[1]
         sc = transform[0](**transform[1]).fit(contour.reshape(-1, 1))
         scalers.append(sc)
@@ -87,7 +87,8 @@ class ContoursDataset(Dataset):
 
         return f0, lo
 
-    def inverse_transform(self, x: torch.Tensor) -> torch.Tensor:
+    def inverse_transform(self, f0: torch.Tensor,
+                          lo: torch.Tensor) -> torch.Tensor:
         """Apply inverse transformations to the contour x (pitch and loudness)
 
         Args:
@@ -97,12 +98,11 @@ class ContoursDataset(Dataset):
             torch.Tensor: inverse transformed contour
         """
 
-        f0, lo = torch.split(x, 1, -2)
         # Inverse transforms
         f0 = self.scalers[0].inverse_transform(f0)
         lo = self.scalers[1].inverse_transform(lo)
 
-        return torch.cat([f0, lo], -2)
+        return f0, lo
 
     def __hz2midi(self, f):
         return 12 * torch.log(f / 440) + 69
