@@ -145,37 +145,10 @@ class ContoursDataset(Dataset):
         u_f0, u_lo = self.transform(self.u_f0[index], self.u_lo[index])
         e_f0, e_lo = self.transform(self.e_f0[index], self.e_lo[index])
 
-        u_c = torch.cat([u_f0, u_lo], 0)
-        e_c = torch.cat([e_f0, e_lo], 0)
-
         # get onsets, offsets, mask
 
         onsets = self.onsets[index]
         offsets = self.offsets[index]
         mask = self.mask[index]
 
-        return u_c, e_c, onsets, offsets, mask
-
-
-def main():
-
-    import matplotlib.pyplot as plt
-
-    l = [(PitchTransform, {
-        "feature_range": (-1, 1)
-    }), (LoudnessTransform, {
-        "feature_range": (-1, 1)
-    })]
-    d = ContoursDataset("data/dataset.pickle", l)
-
-    u_c, e_c, onsets, offsets, mask = d[0]
-
-    print(type(u_c))
-
-    print(type(onsets))
-
-    print(type(mask))
-
-
-if __name__ == "__main__":
-    main()
+        return u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask
