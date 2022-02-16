@@ -23,12 +23,9 @@ class Midi_loss(nn.Module):
                 t_f0,
                 gen_lo,
                 t_lo,
-                onsets,
-                offsets,
+                mask,
                 types=["mean", "mean"],
                 abs=[True, True]) -> torch.Tensor:
-        # create the corresponding mask
-        mask = self.__create_mask(onsets, offsets).to(gen_f0.device)
 
         # apply mask to the pitch contours
         mk_gen_f0 = mask * gen_f0.squeeze(1)
@@ -91,52 +88,3 @@ class Midi_loss(nn.Module):
         return (loss_mean + loss_prop) * (1 - 0.5 * (alg == "both"))
 
     jit(nopython=True, parallel=True)
-
-    def __create_mask(self, onsets, offsets) -> torch.Tensor:
-        """Create a temporal mask according to notes onsets and offsets.
-        Each column of the mask correspond to the temporal activation of a
-        single note
-     
-
-        Args:
-            x (list[torch.Tensor]): sample (unexpressive,  expressive contours, onsets, offsets)
-
-        Returns:
-            torch.Tensor: mask of size (len(onsets) x number of notes)
-        """
-
-        nb_sample, l = onsets.shape
-
-        masks = []
-
-        # we need to keep track of the max number of notes in a sample
-        n_n_max = 0
-
-        for i_sample in range(nb_sample):
-            mask_sample = []
-
-            #initialize current mask
-            m = torch.ones((1, l))
-
-            for idx in range(l):
-                if offsets[i_sample][idx]:
-                    m[:, idx:] -= 1
-                    # add mask to the sample mask
-                    mask_sample += [m]
-
-                    # reinitialize the mask
-                    m = torch.ones((1, l))
-
-                if onsets[i_sample][idx]:
-                    m[:, :idx] -= 1
-
-            # update if necessary the highest number of notes in a sample
-            n_n_max = max(n_n_max, len(mask_sample))
-            masks += [torch.vstack(mask_sample)]
-
-        # we need to pad the masks to the same size (n_n_max)
-        for i in range(len(masks)):
-            masks[i] = torch.nn.functional.pad(
-                masks[i], (0, 0, 0, n_n_max - masks[i].shape[0]), value=0)
-
-        return torch.stack(masks, dim=1)

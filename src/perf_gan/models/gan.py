@@ -83,8 +83,8 @@ class PerfGAN(pl.LightningModule):
         return self.gen(x)
 
     def gen_step(
-        self, u_contours: torch.Tensor, e_contours: torch.Tensor,
-        gen_contours: torch.Tensor, onsets: torch.Tensor, offsets: torch.Tensor
+            self, u_contours: torch.Tensor, e_contours: torch.Tensor,
+            gen_contours: torch.Tensor, mask: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Compute generator loss according to criteron.
         Expressive contours are considered the real data. In case of pitch and loudness 
@@ -94,8 +94,7 @@ class PerfGAN(pl.LightningModule):
             u_contours (torch.Tensor): unexpressive contours
             e_contours (torch.Tensor): expressive contours 
             gen_contours (torch.Tensor): generated contours
-            onsets (torch.Tensor): onsets of the unexpressive contours
-            offsets (torch.Tensor): offsets of the unexpressive contours
+            mask (torch.Tensor): mask for each note of the sample
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: generator loss, pitch loss,  loudness loss
@@ -119,8 +118,7 @@ class PerfGAN(pl.LightningModule):
                                                  inv_u_f0,
                                                  inv_gen_lo,
                                                  inv_u_lo,
-                                                 onsets,
-                                                 offsets,
+                                                 mask,
                                                  types=["mean", "mean"],
                                                  abs=[False, False])
 
@@ -167,7 +165,11 @@ class PerfGAN(pl.LightningModule):
 
         g_opt, d_opt = self.optimizers()
 
-        u_contours, e_contours, onsets, offsets = batch
+        u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask = batch
+
+        u_contours = torch.cat([u_f0, u_lo], -2)
+        e_contours = torch.cat([e_f0, e_lo], -2)
+
         # generate new contours
         gen_contours = self.gen(u_contours)
 
@@ -181,8 +183,7 @@ class PerfGAN(pl.LightningModule):
         # train generator
 
         gen_loss, pitch_loss, lo_loss = self.gen_step(u_contours, e_contours,
-                                                      gen_contours, onsets,
-                                                      offsets)
+                                                      gen_contours, mask)
 
         g_opt.zero_grad()
         self.manual_backward(gen_loss + pitch_loss + lo_loss)
@@ -214,18 +215,15 @@ class PerfGAN(pl.LightningModule):
             u_contours, e_contours, _, _ = batch
             gen_contours = self.gen(u_contours)
 
-            # u_f0, u_lo = u_contours[0].split(1, -2)
-            # e_f0, e_lo = e_contours[0].split(1, -2)
-            # g_f0, g_lo = gen_contours[0].split(1, -2)
+            u_f0, u_lo = u_contours[0].split(1, -2)
+            e_f0, e_lo = e_contours[0].split(1, -2)
+            g_f0, g_lo = gen_contours[0].split(1, -2)
 
             # apply inverse transform
 
-            inv_u_f0, inv_u_lo = self.dataset.inverse_transform(
-                u_contours).split(1, 1)
-            inv_e_f0, inv_e_lo = self.dataset.inverse_transform(
-                e_contours).split(1, 1)
-            inv_g_f0, inv_g_lo = self.dataset.inverse_transform(
-                gen_contours).split(1, 1)
+            inv_u_f0, inv_u_lo = self.dataset.inverse_transform(u_f0, u_lo)
+            inv_e_f0, inv_e_lo = self.dataset.inverse_transform(e_f0, e_lo)
+            inv_g_f0, inv_g_lo = self.dataset.inverse_transform(g_f0, g_lo)
 
             # convert midi to hz / db
 
