@@ -120,6 +120,10 @@ class ContoursDataset(Dataset):
 
     def __load(self):
         # load all contours
+
+        max_mask_size = 0
+        l_mask = []
+
         for c in self.__read_from_pickle(self.path):
             self.u_f0 += [torch.tensor(c["u_f0"])]
             self.e_f0 += [torch.tensor(c["e_f0"])]
@@ -127,9 +131,21 @@ class ContoursDataset(Dataset):
             self.e_lo += [torch.tensor(c["e_lo"])]
             self.onsets += [torch.tensor(c["onsets"])]
             self.offsets += [torch.tensor(c["offsets"])]
-            self.mask += [torch.tensor(c["mask"])]
+
+            # we need to keep track of the "largest" mask for future padding
+            m = torch.tensor(c["mask"])
+            max_mask_size = max(max_mask_size, m.shape[0])
+            l_mask += [m]
 
             self.length += 1
+
+        # pad all mask to the maximum size
+        for m in l_mask:
+            pd = (0, 0, 0, max_mask_size - m.shape[0])
+            m = torch.nn.functional.pad(m, pd)
+            self.mask += [m]
+
+        # mask padding
 
     def __getitem__(self, index) -> torch.Tensor:
 
