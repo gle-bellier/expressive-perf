@@ -125,15 +125,15 @@ class ContoursDataset(Dataset):
         l_mask = []
 
         for c in self.__read_from_pickle(self.path):
-            self.u_f0 += [torch.tensor(c["u_f0"])]
-            self.e_f0 += [torch.tensor(c["e_f0"])]
-            self.u_lo += [torch.tensor(c["u_lo"])]
-            self.e_lo += [torch.tensor(c["e_lo"])]
-            self.onsets += [torch.tensor(c["onsets"])]
-            self.offsets += [torch.tensor(c["offsets"])]
+            self.u_f0 += [torch.tensor(c["u_f0"]).float()]
+            self.e_f0 += [torch.tensor(c["e_f0"]).float()]
+            self.u_lo += [torch.tensor(c["u_lo"]).float()]
+            self.e_lo += [torch.tensor(c["e_lo"]).float()]
+            self.onsets += [torch.tensor(c["onsets"]).float()]
+            self.offsets += [torch.tensor(c["offsets"]).float()]
 
             # we need to keep track of the "largest" mask for future padding
-            m = torch.tensor(c["mask"])
+            m = torch.tensor(c["mask"]).float()
             max_mask_size = max(max_mask_size, m.shape[0])
             l_mask += [m]
 
@@ -161,10 +161,17 @@ class ContoursDataset(Dataset):
         u_f0, u_lo = self.transform(self.u_f0[index], self.u_lo[index])
         e_f0, e_lo = self.transform(self.e_f0[index], self.e_lo[index])
 
+        # reshape vectors
+
+        u_f0 = u_f0.unsqueeze(0)
+        u_lo = u_lo.unsqueeze(0)
+        e_f0 = e_f0.unsqueeze(0)
+        e_lo = e_lo.unsqueeze(0)
+
         # get onsets, offsets, mask
 
-        onsets = self.onsets[index]
-        offsets = self.offsets[index]
+        onsets = self.onsets[index].unsqueeze(0)
+        offsets = self.offsets[index].unsqueeze(0)
         mask = self.mask[index]
 
         return u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask

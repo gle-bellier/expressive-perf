@@ -13,7 +13,8 @@ from typing import List, Tuple
 from perf_gan.models.generator import Generator
 from perf_gan.models.discriminator import Discriminator
 
-from perf_gan.data.synth_dataset import SynthDataset
+from perf_gan.data.contours_dataset import ContoursDataset
+
 from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
 
 from perf_gan.losses.lsgan_loss import LSGAN_loss
@@ -105,12 +106,13 @@ class PerfGAN(pl.LightningModule):
 
         gen_loss = self.criteron.gen_loss(disc_e, disc_gu)
         if self.reg:
+            u_f0, u_lo = u_contours.split(1, 1)
+            gen_f0, gen_lo = gen_contours.split(1, 1)
 
             # apply inverse transform to compare pitches (midi range) and loudness (midi range)
-            inv_u_f0, inv_u_lo = self.dataset.inverse_transform(
-                u_contours).split(1, 1)
+            inv_u_f0, inv_u_lo = self.dataset.inverse_transform(u_f0, u_lo)
             inv_gen_f0, inv_gen_lo = self.dataset.inverse_transform(
-                gen_contours).split(1, 1)
+                gen_f0, gen_lo)
 
             # add pitch loss
 
@@ -212,7 +214,10 @@ class PerfGAN(pl.LightningModule):
         self.val_idx += 1
         if self.val_idx % 10 == 0:
 
-            u_contours, e_contours, _, _ = batch
+            u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask = batch
+
+            u_contours = torch.cat([u_f0, u_lo], -2)
+            e_contours = torch.cat([e_f0, e_lo], -2)
             gen_contours = self.gen(u_contours)
 
             u_f0, u_lo = u_contours[0].split(1, -2)
@@ -286,18 +291,16 @@ if __name__ == "__main__":
         "feature_range": (-1, 1)
     })]
     n_sample = 1024
-    train_set = SynthDataset(path="data/dataset_train_1000.pickle",
-                             n_sample=n_sample,
-                             list_transforms=list_transforms)
+    train_set = ContoursDataset(path="data/dataset.pickle",
+                                list_transforms=list_transforms)
     train_dataloader = DataLoader(dataset=train_set,
-                                  batch_size=16,
+                                  batch_size=2,
                                   shuffle=True,
                                   num_workers=8)
-    test_set = SynthDataset(path="data/dataset_test_100².pickle",
-                            n_sample=n_sample,
-                            list_transforms=list_transforms)
+    test_set = ContoursDataset(path="data/dataset.pickle",
+                               list_transforms=list_transforms)
     test_dataloader = DataLoader(dataset=test_set,
-                                 batch_size=16,
+                                 batch_size=2,
                                  shuffle=True,
                                  num_workers=8)
 
@@ -312,15 +315,15 @@ if __name__ == "__main__":
                     d_dilations=[1, 1, 1, 1, 1],
                     d_h_dims=[n_sample, 128, 64, 1],
                     criteron=criteron,
-                    regularization=False,
+                    regularization=True,
                     lr=lr,
                     b1=0.5,
                     b2=0.999)
 
     model.dataset = train_set
-    model.ddsp = torch.jit.load("ddsp_flute.ts").eval()
+    model.ddsp = None  #torch.jit.load("ddsp_flute.ts").eval()
 
     tb_logger = pl_loggers.TensorBoardLogger('runs/')
-    trainer = pl.Trainer(gpus=1, max_epochs=10000, logger=tb_logger)
+    trainer = pl.Trainer(gpus=0, max_epochs=10000, logger=tb_logger)
 
     trainer.fit(model, train_dataloader, test_dataloader)

@@ -28,12 +28,13 @@ class Midi_loss(nn.Module):
                 abs=[True, True]) -> torch.Tensor:
 
         # apply mask to the pitch contours
-        mk_gen_f0 = mask * gen_f0.squeeze(1)
-        mk_t_f0 = mask * t_f0.squeeze(1)
+
+        mk_gen_f0 = mask * gen_f0
+        mk_t_f0 = mask * t_f0
 
         # apply mask to the loudness contours
-        mk_gen_lo = mask * gen_lo.squeeze(1)
-        mk_t_lo = mask * t_lo.squeeze(1)
+        mk_gen_lo = mask * gen_lo
+        mk_t_lo = mask * t_lo
 
         loss_pitch = self.__contour_loss(mk_gen_f0,
                                          mk_t_f0,
