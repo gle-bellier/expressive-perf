@@ -3,6 +3,7 @@ import torch.nn as nn
 
 
 class Bottleneck(nn.Module):
+
     def __init__(self, in_channels: int, out_channels: int) -> None:
         """Create bottleneck for U-Net architecture
 
@@ -16,6 +17,8 @@ class Bottleneck(nn.Module):
                               kernel_size=4,
                               padding=1,
                               stride=2)
+
+        self.gru = nn.GRU(out_channels, out_channels, batch_first=True)
         self.lr = nn.LeakyReLU(.2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -27,6 +30,12 @@ class Bottleneck(nn.Module):
         Returns:
             torch.Tensor: output contours"""
         x = self.conv(x)
+
+        # apply rnn
+        x = x.permute(0, 2, 1)
+        x, _ = self.gru(x)
+        x = x.permute(0, 2, 1)
+
         out = self.lr(x)
 
         return out
