@@ -23,6 +23,7 @@ from perf_gan.losses.midi_loss import Midi_loss
 
 
 class PerfGAN(pl.LightningModule):
+
     def __init__(self, g_down_channels: List[int], g_up_channels: List[int],
                  g_down_dilations: List[int], g_up_dilations: List[int],
                  d_conv_channels: List[int], d_dilations: List[int],
@@ -152,7 +153,8 @@ class PerfGAN(pl.LightningModule):
 
         return disc_loss
 
-    def training_step(self, batch: List[torch.Tensor], batch_idx: int) -> OrderedDict:
+    def training_step(self, batch: List[torch.Tensor],
+                      batch_idx: int) -> OrderedDict:
         """Compute a training step for generator or discriminator 
         (according to optimizer index)
 
@@ -194,17 +196,16 @@ class PerfGAN(pl.LightningModule):
             self.log("reg/f0_loss", pitch_loss)
             self.log("reg/lo_loss", lo_loss)
 
-
         self.logger.experiment.add_scalars(
-                'abversarial',
-                {
-                    'gen': gen_loss,
-                    'disc': disc_loss
-                },
-                global_step=self.train_idx,
-            )
+            'abversarial',
+            {
+                'gen': gen_loss,
+                'disc': disc_loss
+            },
+            global_step=self.train_idx,
+        )
 
-        self.train_idx +=1
+        self.train_idx += 1
         #self.log_dict({"g_loss": gen_loss, "d_loss": disc_loss}, prog_bar=True)
 
     def __midi2hz(self, x):
@@ -236,29 +237,41 @@ class PerfGAN(pl.LightningModule):
 
             # apply inverse transform
 
-            inv_u_f0, inv_u_lo = self.dataset.inverse_transform(u_f0, u_lo)
-            inv_e_f0, inv_e_lo = self.dataset.inverse_transform(e_f0, e_lo)
-            inv_g_f0, inv_g_lo = self.dataset.inverse_transform(g_f0, g_lo)
+            u_f0, u_lo = self.dataset.inverse_transform(u_f0, u_lo)
+            e_f0, e_lo = self.dataset.inverse_transform(e_f0, e_lo)
+            g_f0, g_lo = self.dataset.inverse_transform(g_f0, g_lo)
 
             # convert midi to hz / db
 
-            u_f0 = self.__midi2hz(inv_u_f0[0])
-            e_f0 = self.__midi2hz(inv_e_f0[0])
-            g_f0 = self.__midi2hz(inv_g_f0[0])
+            u_f0 = self.__midi2hz(u_f0[0])
+            e_f0 = self.__midi2hz(e_f0[0])
+            g_f0 = self.__midi2hz(g_f0[0])
 
             if self.reg:
                 plt.plot(u_f0.squeeze().cpu().detach(), label="u_f0")
-                plt.plot(e_f0.squeeze().cpu().detach(), label="e_f0")
             plt.plot(g_f0.squeeze().cpu().detach(), label="g_f0")
             plt.legend()
-            self.logger.experiment.add_figure("contours/pitch", plt.gcf(), self.val_idx)
+            self.logger.experiment.add_figure("contours/gen/f0", plt.gcf(),
+                                              self.val_idx)
+
+            if self.reg:
+                plt.plot(e_f0.squeeze().cpu().detach(), label="e_f0")
+                plt.legend()
+                self.logger.experiment.add_figure("contours/sample/f0",
+                                                  plt.gcf(), self.val_idx)
 
             if self.reg:
                 plt.plot(u_lo.squeeze().cpu().detach(), label="u_lo")
-                plt.plot(e_lo.squeeze().cpu().detach(), label="e_lo")
             plt.plot(g_lo.squeeze().cpu().detach(), label="g_lo")
             plt.legend()
-            self.logger.experiment.add_figure("contours/lo", plt.gcf(), self.val_idx)
+            self.logger.experiment.add_figure("contours/gen/lo", plt.gcf(),
+                                              self.val_idx)
+
+            if self.reg:
+                plt.plot(e_lo.squeeze().cpu().detach(), label="e_lo")
+                plt.legend()
+                self.logger.experiment.add_figure("contours/sample/lo",
+                                                  plt.gcf(), self.val_idx)
 
             if self.ddsp is not None:
                 g_f0 = g_f0.float().reshape(1, -1, 1)
@@ -301,13 +314,13 @@ if __name__ == "__main__":
     train_set = ContoursDataset(path="data/dataset.pickle",
                                 list_transforms=list_transforms)
     train_dataloader = DataLoader(dataset=train_set,
-                                  batch_size=8,
+                                  batch_size=32,
                                   shuffle=True,
                                   num_workers=8)
     test_set = ContoursDataset(path="data/dataset.pickle",
                                list_transforms=list_transforms)
     test_dataloader = DataLoader(dataset=test_set,
-                                 batch_size=8,
+                                 batch_size=32,
                                  shuffle=True,
                                  num_workers=8)
 
@@ -318,9 +331,9 @@ if __name__ == "__main__":
                     g_up_channels=[512, 128, 64, 32, 2],
                     g_down_dilations=[3, 1, 1, 1],
                     g_up_dilations=[3, 1, 1, 1, 1],
-                    d_conv_channels=[2, 64, 128, 512, 32, 1],
-                    d_dilations=[1, 1, 1, 1, 1],
-                    d_h_dims=[n_sample, 128, 64, 1],
+                    d_conv_channels=[2, 64, 128, 1024, 512, 32, 1],
+                    d_dilations=[3, 3, 1, 1, 1, 1],
+                    d_h_dims=[n_sample, 512, 64, 1],
                     criteron=criteron,
                     regularization=True,
                     lr=lr,
@@ -328,9 +341,12 @@ if __name__ == "__main__":
                     b2=0.999)
 
     model.dataset = train_set
-    model.ddsp = None  #torch.jit.load("ddsp_flute.ts").eval()
+    model.ddsp = torch.jit.load("ddsp_violin.ts").eval()
 
     tb_logger = pl_loggers.TensorBoardLogger('runs/')
-    trainer = pl.Trainer(gpus=0, max_epochs=10000, logger=tb_logger, log_every_n_steps=25)
+    trainer = pl.Trainer(gpus=0,
+                         max_epochs=10000,
+                         logger=tb_logger,
+                         log_every_n_steps=10)
 
     trainer.fit(model, train_dataloader, test_dataloader)
