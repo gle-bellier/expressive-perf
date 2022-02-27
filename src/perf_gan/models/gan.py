@@ -242,12 +242,9 @@ class PerfGAN(pl.LightningModule):
 
             # convert midi to hz / db
 
-            u_f0, u_lo = self.__midi2hz(inv_u_f0[0]), self.__midi2dB(
-                inv_u_lo[0])
-            e_f0, e_lo = self.__midi2hz(inv_e_f0[0]), self.__midi2dB(
-                inv_e_lo[0])
-            g_f0, g_lo = self.__midi2hz(inv_g_f0[0]), self.__midi2dB(
-                inv_g_lo[0])
+            u_f0 = self.__midi2hz(inv_u_f0[0])
+            e_f0 = self.__midi2hz(inv_e_f0[0])
+            g_f0 = self.__midi2hz(inv_g_f0[0])
 
             if self.reg:
                 plt.plot(u_f0.squeeze().cpu().detach(), label="u_f0")
