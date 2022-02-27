@@ -63,6 +63,7 @@ class PerfGAN(pl.LightningModule):
         self.midi_loss = Midi_loss().cuda()
 
         self.val_idx = 0
+        self.train_idx = 0
 
         self.pitch_ratio = 1
         self.lo_ratio = 1
@@ -151,15 +152,13 @@ class PerfGAN(pl.LightningModule):
 
         return disc_loss
 
-    def training_step(self, batch: List[torch.Tensor], batch_idx: int,
-                      optimizer_idx: int) -> OrderedDict:
+    def training_step(self, batch: List[torch.Tensor], batch_idx: int) -> OrderedDict:
         """Compute a training step for generator or discriminator 
         (according to optimizer index)
 
         Args:
             batch (List[torch.Tensor]): batch composed of (u_contours, e_contours, onsets, offsets)
             batch_idx (int): batch index
-            optimizer_idx (int): optimizer index (0 for generator, 1 for discriminator)
 
         Returns:
             OrderedDict: dict {loss, progress_bar, log}
@@ -188,14 +187,25 @@ class PerfGAN(pl.LightningModule):
                                                       gen_contours, mask)
 
         g_opt.zero_grad()
-        self.manual_backward(gen_loss + pitch_loss + lo_loss)
+        self.manual_backward(gen_loss + 10 * pitch_loss + lo_loss)
         g_opt.step()
 
         if self.reg:
-            self.log("pitch_loss", pitch_loss)
-            self.log("lo_loss", lo_loss)
+            self.log("reg/f0_loss", pitch_loss)
+            self.log("reg/lo_loss", lo_loss)
 
-        self.log_dict({"g_loss": gen_loss, "d_loss": disc_loss}, prog_bar=True)
+
+        self.logger.experiment.add_scalars(
+                'abversarial',
+                {
+                    'gen': gen_loss,
+                    'disc': disc_loss
+                },
+                global_step=self.train_idx,
+            )
+
+        self.train_idx +=1
+        #self.log_dict({"g_loss": gen_loss, "d_loss": disc_loss}, prog_bar=True)
 
     def __midi2hz(self, x):
         return torch.pow(2, (x - 69) / 12) * 440
@@ -244,14 +254,14 @@ class PerfGAN(pl.LightningModule):
                 plt.plot(e_f0.squeeze().cpu().detach(), label="e_f0")
             plt.plot(g_f0.squeeze().cpu().detach(), label="g_f0")
             plt.legend()
-            self.logger.experiment.add_figure("pitch", plt.gcf(), self.val_idx)
+            self.logger.experiment.add_figure("contours/pitch", plt.gcf(), self.val_idx)
 
             if self.reg:
                 plt.plot(u_lo.squeeze().cpu().detach(), label="u_lo")
                 plt.plot(e_lo.squeeze().cpu().detach(), label="e_lo")
             plt.plot(g_lo.squeeze().cpu().detach(), label="g_lo")
             plt.legend()
-            self.logger.experiment.add_figure("lo", plt.gcf(), self.val_idx)
+            self.logger.experiment.add_figure("contours/lo", plt.gcf(), self.val_idx)
 
             if self.ddsp is not None:
                 g_f0 = g_f0.float().reshape(1, -1, 1)
@@ -294,13 +304,13 @@ if __name__ == "__main__":
     train_set = ContoursDataset(path="data/dataset.pickle",
                                 list_transforms=list_transforms)
     train_dataloader = DataLoader(dataset=train_set,
-                                  batch_size=2,
+                                  batch_size=8,
                                   shuffle=True,
                                   num_workers=8)
     test_set = ContoursDataset(path="data/dataset.pickle",
                                list_transforms=list_transforms)
     test_dataloader = DataLoader(dataset=test_set,
-                                 batch_size=2,
+                                 batch_size=8,
                                  shuffle=True,
                                  num_workers=8)
 
@@ -324,6 +334,6 @@ if __name__ == "__main__":
     model.ddsp = None  #torch.jit.load("ddsp_flute.ts").eval()
 
     tb_logger = pl_loggers.TensorBoardLogger('runs/')
-    trainer = pl.Trainer(gpus=0, max_epochs=10000, logger=tb_logger)
+    trainer = pl.Trainer(gpus=0, max_epochs=10000, logger=tb_logger, log_every_n_steps=25)
 
     trainer.fit(model, train_dataloader, test_dataloader)
