@@ -23,14 +23,16 @@ from perf_gan.losses.midi_loss import Midi_loss
 
 
 class PerfGAN(pl.LightningModule):
-    def __init__(self, g_down_channels: List[int], g_up_channels: List[int],
-                 g_down_dilations: List[int], g_up_dilations: List[int],
-                 d_conv_channels: List[int], d_dilations: List[int],
-                 d_h_dims: List[int], criteron: float, regularization: bool,
-                 lr: float, b1: int, b2: int):
+
+    def __init__(self, mode: str, g_down_channels: List[int],
+                 g_up_channels: List[int], g_down_dilations: List[int],
+                 g_up_dilations: List[int], d_conv_channels: List[int],
+                 d_dilations: List[int], d_h_dims: List[int], criteron: float,
+                 regularization: bool, lr: float, b1: int, b2: int):
         """[summary]
 
         Args:
+            mode (str): equals to "dev" for the model generating pitch and loudness deviation or "contours" for full contours generation
             g_down_channels (List[int]): generator list of downsampling channels
             g_up_channels (List[int]): generator list of upsampling channels
             g_down_dilations (List[int]): generator list of down blocks dilations
@@ -48,6 +50,10 @@ class PerfGAN(pl.LightningModule):
 
         self.save_hyperparameters()
 
+        assert mode in ["dev", "contours"
+                        ], f"Mode should be in [dev, contours], got {mode}"
+        self.mode = mode
+
         self.gen = Generator(down_channels=g_down_channels,
                              up_channels=g_up_channels,
                              down_dilations=g_down_dilations,
@@ -60,7 +66,7 @@ class PerfGAN(pl.LightningModule):
         self.criteron = criteron
         self.reg = regularization
         self.dataset = None
-        self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=3).cuda()
+        self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=2).cuda()
 
         self.val_idx = 0
         self.train_idx = 0
@@ -82,7 +88,13 @@ class PerfGAN(pl.LightningModule):
         Returns:
             torch.Tensor: generated expressive contours (B, C, L)
         """
-        return self.gen(x)
+
+        # generate deviations or whole contours
+
+        if self.mode == "dev":
+            return self.gen(x) + x
+        else:
+            return self.gen(x)
 
     def gen_step(
             self, u_contours: torch.Tensor, e_contours: torch.Tensor,
@@ -168,7 +180,7 @@ class PerfGAN(pl.LightningModule):
         e_contours = torch.cat([e_f0, e_lo], -2)
 
         # generate new contours
-        gen_contours = self.gen(u_contours)
+        gen_contours = self(u_contours)
 
         # train discriminator
         disc_loss = self.disc_step(u_contours, e_contours, gen_contours)
@@ -305,23 +317,24 @@ if __name__ == "__main__":
         "feature_range": (-1, 1)
     })]
     n_sample = 1024
-    train_set = ContoursDataset(path="data/dataset.pickle",
+    train_set = ContoursDataset(path="data/dataset_aug.pickle",
                                 list_transforms=list_transforms)
     train_dataloader = DataLoader(dataset=train_set,
-                                  batch_size=32,
+                                  batch_size=64,
                                   shuffle=True,
                                   num_workers=8)
-    test_set = ContoursDataset(path="data/dataset.pickle",
+    test_set = ContoursDataset(path="data/dataset_aug.pickle",
                                list_transforms=list_transforms)
     test_dataloader = DataLoader(dataset=test_set,
-                                 batch_size=32,
+                                 batch_size=64,
                                  shuffle=True,
                                  num_workers=8)
 
     lr = 1e-3
     criteron = Hinge_loss()
     # init model
-    model = PerfGAN(g_down_channels=[2, 32, 64, 128],
+    model = PerfGAN(mode="dev",
+                    g_down_channels=[2, 32, 64, 128],
                     g_up_channels=[512, 128, 64, 32, 2],
                     g_down_dilations=[3, 1, 1, 1],
                     g_up_dilations=[3, 1, 1, 1, 1],
@@ -338,7 +351,7 @@ if __name__ == "__main__":
     model.ddsp = torch.jit.load("ddsp_violin.ts").eval()
 
     tb_logger = pl_loggers.TensorBoardLogger('runs/')
-    trainer = pl.Trainer(gpus=0,
+    trainer = pl.Trainer(gpus=1,
                          max_epochs=10000,
                          logger=tb_logger,
                          log_every_n_steps=10)
