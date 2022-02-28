@@ -1,67 +1,40 @@
 import pytest
 import torch
 from torch.utils.data import DataLoader
-from perf_gan.losses.midi_loss import MidiLoss
-from perf_gan.data.synth_dataset import SynthDataset
+from perf_gan.losses.midi_loss import Midi_loss
+
+from perf_gan.data.preprocess import Identity
+
+from perf_gan.data.contours_dataset import ContoursDataset
 import matplotlib.pyplot as plt
 
-dataset = SynthDataset("data/dataset.pickle", n_sample=1024)
+list_transforms = [(Identity, {}), (Identity, {})]
+n_sample = 1024
+dataset = ContoursDataset(path="data/dataset.pickle",
+                          list_transforms=list_transforms)
 dataloader = DataLoader(dataset=dataset, batch_size=1, shuffle=True)
 
-losses_mean = []
-losses_prop = []
-losses_both = []
-
+losses = []
 N = 10
 
 shifts = torch.arange(0, 3, 0.1)
 for shift in shifts:
 
-    m_losses_mean = 0
-    m_losses_prop = 0
-    m_losses_both = 0
+    loss = 0
     for i in range(N):
         sample = next(iter(dataloader))
 
-        u_contours, e_contours, onsets, offsets = sample
+        u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask = sample
 
-        # we suppose we generate same contours as MIDI + shift
-        u_f0, u_lo = u_contours.split(1, 1)
-        e_f0, e_lo = e_contours.split(1, 1)
-
-        gen_f0 = e_f0 + shift
+        gen_f0 = u_f0 + shift
         gen_lo = u_lo
 
-        midi_loss = MidiLoss()
-        m_losses_mean += midi_loss(gen_f0,
-                                   u_f0,
-                                   gen_lo,
-                                   u_lo,
-                                   onsets,
-                                   offsets,
-                                   types=["mean", "mean"])[0] / N
+        midi_loss = Midi_loss(f0_threshold=0.2, lo_threshold=3)
+        loss += midi_loss(gen_f0, u_f0, gen_lo, u_lo, mask)[0] / N
 
-        m_losses_prop += midi_loss(gen_f0,
-                                   u_f0,
-                                   gen_lo,
-                                   u_lo,
-                                   onsets,
-                                   offsets,
-                                   types=["prop", "prop"])[0] / N
-        m_losses_both += midi_loss(gen_f0,
-                                   u_f0,
-                                   gen_lo,
-                                   u_lo,
-                                   onsets,
-                                   offsets,
-                                   types=["both", "both"])[0] / N
-    losses_mean += [m_losses_mean]
-    losses_prop += [m_losses_prop]
-    losses_both += [m_losses_both]
+    losses += [loss]
 
-plt.plot(shifts, losses_mean, label="mean")
-plt.plot(shifts, losses_prop, label="prop")
-plt.plot(shifts, losses_both, label="both")
+plt.plot(shifts, losses, label="mean")
 
 plt.legend()
 plt.show()

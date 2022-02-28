@@ -23,7 +23,6 @@ from perf_gan.losses.midi_loss import Midi_loss
 
 
 class PerfGAN(pl.LightningModule):
-
     def __init__(self, g_down_channels: List[int], g_up_channels: List[int],
                  g_down_dilations: List[int], g_up_dilations: List[int],
                  d_conv_channels: List[int], d_dilations: List[int],
@@ -118,13 +117,8 @@ class PerfGAN(pl.LightningModule):
 
             # add pitch loss
 
-            pitch_loss, lo_loss = self.midi_loss(inv_gen_f0,
-                                                 inv_u_f0,
-                                                 inv_gen_lo,
-                                                 inv_u_lo,
-                                                 mask,
-                                                 types=["mean", "mean"],
-                                                 abs=[False, False])
+            pitch_loss, lo_loss = self.midi_loss(inv_gen_f0, inv_u_f0,
+                                                 inv_gen_lo, inv_u_lo, mask)
 
         else:
             pitch_loss = lo_loss = 0
