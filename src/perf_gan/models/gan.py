@@ -60,7 +60,7 @@ class PerfGAN(pl.LightningModule):
         self.criteron = criteron
         self.reg = regularization
         self.dataset = None
-        self.midi_loss = Midi_loss().cuda()
+        self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=3).cuda()
 
         self.val_idx = 0
         self.train_idx = 0
