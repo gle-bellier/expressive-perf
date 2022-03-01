@@ -7,11 +7,12 @@ from perf_gan.models.conv_blocks import ConvBlock
 class DBlock(nn.Module):
     """Down sampling block for the U-net architecture
     """
+
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
                  dilation: int,
-                 rnn: True,
+                 rnn=True,
                  first=False) -> None:
         """Initialize the down sampling block
 
@@ -29,7 +30,7 @@ class DBlock(nn.Module):
         self.conv1 = ConvBlock(in_channels, out_channels, dilation, norm=True)
         self.conv2 = ConvBlock(out_channels, out_channels, dilation, norm=True)
 
-        self.gru = nn.GRU(out_channels)
+        self.gru = nn.GRU(out_channels, out_channels)
 
         self.mp = nn.MaxPool1d(kernel_size=2)
         self.avg = nn.AvgPool1d(kernel_size=2)
@@ -47,6 +48,7 @@ class DBlock(nn.Module):
 
         if self.rnn:
             # apply rnn
+            self.gru.flatten_parameters()
             x = x.permute(0, 2, 1)
             x, _ = self.gru(x)
             x = x.permute(0, 2, 1)

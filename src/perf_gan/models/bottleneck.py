@@ -32,6 +32,7 @@ class Bottleneck(nn.Module):
         x = self.conv(x)
 
         # apply rnn
+        self.gru.flatten_parameters()
         x = x.permute(0, 2, 1)
         x, _ = self.gru(x)
         x = x.permute(0, 2, 1)
