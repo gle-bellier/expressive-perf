@@ -11,6 +11,7 @@ class DBlock(nn.Module):
                  in_channels: int,
                  out_channels: int,
                  dilation: int,
+                 rnn: True,
                  first=False) -> None:
         """Initialize the down sampling block
 
@@ -23,9 +24,13 @@ class DBlock(nn.Module):
         super().__init__()
 
         self.first = first
+        self.rnn = rnn
         self.lr = nn.LeakyReLU()
         self.conv1 = ConvBlock(in_channels, out_channels, dilation, norm=True)
         self.conv2 = ConvBlock(out_channels, out_channels, dilation, norm=True)
+
+        self.gru = nn.GRU(out_channels)
+
         self.mp = nn.MaxPool1d(kernel_size=2)
         self.avg = nn.AvgPool1d(kernel_size=2)
 
@@ -39,6 +44,13 @@ class DBlock(nn.Module):
             torch.Tensor: output tensor  of size (B, out_C, L//2)
         """
         x = self.conv1(x)
+
+        if self.rnn:
+            # apply rnn
+            x = x.permute(0, 2, 1)
+            x, _ = self.gru(x)
+            x = x.permute(0, 2, 1)
+
         if not self.first:
             x = self.avg(x)
         out = self.conv2(x)
