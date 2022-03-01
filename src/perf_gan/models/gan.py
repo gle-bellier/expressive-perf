@@ -118,17 +118,17 @@ class PerfGAN(pl.LightningModule):
         disc_gu = self.disc(gen_contours).view(-1)
 
         gen_loss = self.criteron.gen_loss(disc_e, disc_gu)
+
         if self.reg:
             u_f0, u_lo = u_contours.split(1, 1)
             gen_f0, gen_lo = gen_contours.split(1, 1)
 
-            # apply inverse transform to compare pitches (midi range) and loudness (midi range)
+            # apply inverse transform to compare pitches (midi range) and loudness (loudness range)
             inv_u_f0, inv_u_lo = self.dataset.inverse_transform(u_f0, u_lo)
             inv_gen_f0, inv_gen_lo = self.dataset.inverse_transform(
                 gen_f0, gen_lo)
 
             # add pitch loss
-
             pitch_loss, lo_loss = self.midi_loss(inv_gen_f0, inv_u_f0,
                                                  inv_gen_lo, inv_u_lo, mask)
 
@@ -212,14 +212,9 @@ class PerfGAN(pl.LightningModule):
         )
 
         self.train_idx += 1
-        #self.log_dict({"g_loss": gen_loss, "d_loss": disc_loss}, prog_bar=True)
 
     def __midi2hz(self, x):
         return torch.pow(2, (x - 69) / 12) * 440
-
-    def __midi2dB(self, x):
-        # TODO : make more accurate converting
-        return (x / 127 - 1) * 96
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
         """Compute validation step (do some logging)
@@ -235,7 +230,7 @@ class PerfGAN(pl.LightningModule):
 
             u_contours = torch.cat([u_f0, u_lo], -2)
             e_contours = torch.cat([e_f0, e_lo], -2)
-            gen_contours = self.gen(u_contours)
+            gen_contours = self(u_contours)
 
             u_f0, u_lo = u_contours[0].split(1, -2)
             e_f0, e_lo = e_contours[0].split(1, -2)
@@ -281,7 +276,9 @@ class PerfGAN(pl.LightningModule):
 
             if self.ddsp is not None:
                 g_f0 = g_f0.float().reshape(1, -1, 1)
-                g_lo = g_lo.float().reshape(1, -1, 1)
+                # artificialy add 3db
+                g_lo = g_lo.float().reshape(1, -1, 1) + 3
+                self.ddsp.flatten_parameters()
                 signal = self.ddsp(g_f0, g_lo)
                 signal = signal.reshape(-1).cpu().numpy()
                 self.logger.experiment.add_audio(
@@ -338,11 +335,11 @@ if __name__ == "__main__":
                     g_up_channels=[512, 128, 64, 32, 2],
                     g_down_dilations=[3, 1, 1, 1],
                     g_up_dilations=[3, 1, 1, 1, 1],
-                    d_conv_channels=[2, 64, 128, 1024, 512, 32, 1],
-                    d_dilations=[3, 3, 1, 1, 1, 1],
+                    d_conv_channels=[2, 64, 1024, 512, 32, 1],
+                    d_dilations=[1, 1, 1, 1, 1, 1],
                     d_h_dims=[n_sample, 512, 64, 1],
                     criteron=criteron,
-                    regularization=True,
+                    regularization=False,
                     lr=lr,
                     b1=0.5,
                     b2=0.999)
