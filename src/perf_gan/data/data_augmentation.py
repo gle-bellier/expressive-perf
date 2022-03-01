@@ -5,6 +5,7 @@ import torch.nn as nn
 
 
 class DataAugmentation:
+
     def __init__(self, path):
         self.path = path
 
@@ -52,14 +53,14 @@ class DataAugmentation:
 
         for c in self.__read_from_pickle(self.path):
 
-            self.u_f0 += [torch.tensor(c["u_f0"]).float()]
+            self.u_f0 += [c["u_f0"]]
 
-            self.e_f0 += [torch.tensor(c["e_f0"]).float()]
-            self.u_lo += [torch.tensor(c["u_lo"]).float()]
-            self.e_lo += [torch.tensor(c["e_lo"]).float()]
-            self.onsets += [torch.tensor(c["onsets"]).float()]
-            self.offsets += [torch.tensor(c["offsets"]).float()]
-            self.mask += [torch.tensor(c["mask"]).float()]
+            self.e_f0 += [c["e_f0"]]
+            self.u_lo += [c["u_lo"]]
+            self.e_lo += [c["e_lo"]]
+            self.onsets += [c["onsets"]]
+            self.offsets += [c["offsets"]]
+            self.mask += [c["mask"]]
 
     def write(self, path):
 
