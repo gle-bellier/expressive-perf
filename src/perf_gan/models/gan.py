@@ -21,6 +21,10 @@ from perf_gan.losses.lsgan_loss import LSGAN_loss
 from perf_gan.losses.hinge_loss import Hinge_loss
 from perf_gan.losses.midi_loss import Midi_loss
 
+import warnings
+
+warnings.filterwarnings('ignore')
+
 
 class PerfGAN(pl.LightningModule):
 
@@ -278,7 +282,6 @@ class PerfGAN(pl.LightningModule):
                 g_f0 = g_f0.float().reshape(1, -1, 1)
                 # artificialy add 3db
                 g_lo = g_lo.float().reshape(1, -1, 1) + 3
-                self.ddsp.flatten_parameters()
                 signal = self.ddsp(g_f0, g_lo)
                 signal = signal.reshape(-1).cpu().numpy()
                 self.logger.experiment.add_audio(
