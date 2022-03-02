@@ -199,7 +199,7 @@ class PerfGAN(pl.LightningModule):
                                                       gen_contours, mask)
 
         g_opt.zero_grad()
-        self.manual_backward(gen_loss + 10 * pitch_loss + lo_loss)
+        self.manual_backward(gen_loss + 10 * (pitch_loss + lo_loss))
         g_opt.step()
 
         if self.reg:
@@ -330,19 +330,19 @@ if __name__ == "__main__":
                                  shuffle=True,
                                  num_workers=8)
 
-    lr = 1e-3
+    lr = 5e-4
     criteron = Hinge_loss()
     # init model
     model = PerfGAN(mode="dev",
                     g_down_channels=[2, 32, 64, 128],
                     g_up_channels=[512, 128, 64, 32, 2],
-                    g_down_dilations=[3, 1, 1, 1],
+                    g_down_dilations=[1, 1, 1, 1],
                     g_up_dilations=[3, 1, 1, 1, 1],
-                    d_conv_channels=[2, 64, 1024, 512, 32, 1],
+                    d_conv_channels=[2, 64, 512, 32, 1],
                     d_dilations=[1, 1, 1, 1, 1, 1],
                     d_h_dims=[n_sample, 512, 64, 1],
                     criteron=criteron,
-                    regularization=False,
+                    regularization=True,
                     lr=lr,
                     b1=0.5,
                     b2=0.999)
