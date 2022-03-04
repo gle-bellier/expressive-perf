@@ -9,6 +9,7 @@ from perf_gan.models.linear_blocks import LinBlock
 class Discriminator(nn.Module):
     """Discriminator for performance contours modelling relying on a U-Net architecture
     """
+
     def __init__(self, conv_channels: List[int], dilations: List[int],
                  h_dims: List[int]) -> None:
         """Initialize the discriminator of the performance GAN. 

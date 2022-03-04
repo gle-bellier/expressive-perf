@@ -21,16 +21,22 @@ from perf_gan.losses.lsgan_loss import LSGAN_loss
 from perf_gan.losses.hinge_loss import Hinge_loss
 from perf_gan.losses.midi_loss import Midi_loss
 
+import warnings
+
+warnings.filterwarnings('ignore')
+
 
 class PerfGAN(pl.LightningModule):
-    def __init__(self, g_down_channels: List[int], g_up_channels: List[int],
-                 g_down_dilations: List[int], g_up_dilations: List[int],
-                 d_conv_channels: List[int], d_dilations: List[int],
-                 d_h_dims: List[int], criteron: float, regularization: bool,
-                 lr: float, b1: int, b2: int):
+
+    def __init__(self, mode: str, g_down_channels: List[int],
+                 g_up_channels: List[int], g_down_dilations: List[int],
+                 g_up_dilations: List[int], d_conv_channels: List[int],
+                 d_dilations: List[int], d_h_dims: List[int], criteron: float,
+                 regularization: bool, lr: float, b1: int, b2: int):
         """[summary]
 
         Args:
+            mode (str): equals to "dev" for the model generating pitch and loudness deviation or "contours" for full contours generation
             g_down_channels (List[int]): generator list of downsampling channels
             g_up_channels (List[int]): generator list of upsampling channels
             g_down_dilations (List[int]): generator list of down blocks dilations
@@ -48,6 +54,10 @@ class PerfGAN(pl.LightningModule):
 
         self.save_hyperparameters()
 
+        assert mode in ["dev", "contours"
+                        ], f"Mode should be in [dev, contours], got {mode}"
+        self.mode = mode
+
         self.gen = Generator(down_channels=g_down_channels,
                              up_channels=g_up_channels,
                              down_dilations=g_down_dilations,
@@ -60,7 +70,7 @@ class PerfGAN(pl.LightningModule):
         self.criteron = criteron
         self.reg = regularization
         self.dataset = None
-        self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=3).cuda()
+        self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=2).cuda()
 
         self.val_idx = 0
         self.train_idx = 0
@@ -82,7 +92,13 @@ class PerfGAN(pl.LightningModule):
         Returns:
             torch.Tensor: generated expressive contours (B, C, L)
         """
-        return self.gen(x)
+
+        # generate deviations or whole contours
+
+        if self.mode == "dev":
+            return self.gen(x) + x
+        else:
+            return self.gen(x)
 
     def gen_step(
             self, u_contours: torch.Tensor, e_contours: torch.Tensor,
@@ -106,17 +122,17 @@ class PerfGAN(pl.LightningModule):
         disc_gu = self.disc(gen_contours).view(-1)
 
         gen_loss = self.criteron.gen_loss(disc_e, disc_gu)
+
         if self.reg:
             u_f0, u_lo = u_contours.split(1, 1)
             gen_f0, gen_lo = gen_contours.split(1, 1)
 
-            # apply inverse transform to compare pitches (midi range) and loudness (midi range)
+            # apply inverse transform to compare pitches (midi range) and loudness (loudness range)
             inv_u_f0, inv_u_lo = self.dataset.inverse_transform(u_f0, u_lo)
             inv_gen_f0, inv_gen_lo = self.dataset.inverse_transform(
                 gen_f0, gen_lo)
 
             # add pitch loss
-
             pitch_loss, lo_loss = self.midi_loss(inv_gen_f0, inv_u_f0,
                                                  inv_gen_lo, inv_u_lo, mask)
 
@@ -168,7 +184,7 @@ class PerfGAN(pl.LightningModule):
         e_contours = torch.cat([e_f0, e_lo], -2)
 
         # generate new contours
-        gen_contours = self.gen(u_contours)
+        gen_contours = self(u_contours)
 
         # train discriminator
         disc_loss = self.disc_step(u_contours, e_contours, gen_contours)
@@ -183,7 +199,7 @@ class PerfGAN(pl.LightningModule):
                                                       gen_contours, mask)
 
         g_opt.zero_grad()
-        self.manual_backward(gen_loss + 10 * pitch_loss + lo_loss)
+        self.manual_backward(gen_loss + 10 * (pitch_loss + lo_loss))
         g_opt.step()
 
         if self.reg:
@@ -200,14 +216,9 @@ class PerfGAN(pl.LightningModule):
         )
 
         self.train_idx += 1
-        #self.log_dict({"g_loss": gen_loss, "d_loss": disc_loss}, prog_bar=True)
 
     def __midi2hz(self, x):
         return torch.pow(2, (x - 69) / 12) * 440
-
-    def __midi2dB(self, x):
-        # TODO : make more accurate converting
-        return (x / 127 - 1) * 96
 
     def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
         """Compute validation step (do some logging)
@@ -223,7 +234,7 @@ class PerfGAN(pl.LightningModule):
 
             u_contours = torch.cat([u_f0, u_lo], -2)
             e_contours = torch.cat([e_f0, e_lo], -2)
-            gen_contours = self.gen(u_contours)
+            gen_contours = self(u_contours)
 
             u_f0, u_lo = u_contours[0].split(1, -2)
             e_f0, e_lo = e_contours[0].split(1, -2)
@@ -269,7 +280,8 @@ class PerfGAN(pl.LightningModule):
 
             if self.ddsp is not None:
                 g_f0 = g_f0.float().reshape(1, -1, 1)
-                g_lo = g_lo.float().reshape(1, -1, 1)
+                # artificialy add 3db
+                g_lo = g_lo.float().reshape(1, -1, 1) + 3
                 signal = self.ddsp(g_f0, g_lo)
                 signal = signal.reshape(-1).cpu().numpy()
                 self.logger.experiment.add_audio(
@@ -305,28 +317,29 @@ if __name__ == "__main__":
         "feature_range": (-1, 1)
     })]
     n_sample = 1024
-    train_set = ContoursDataset(path="data/dataset.pickle",
+    train_set = ContoursDataset(path="data/dataset_aug.pickle",
                                 list_transforms=list_transforms)
     train_dataloader = DataLoader(dataset=train_set,
-                                  batch_size=32,
+                                  batch_size=64,
                                   shuffle=True,
                                   num_workers=8)
-    test_set = ContoursDataset(path="data/dataset.pickle",
+    test_set = ContoursDataset(path="data/dataset_aug.pickle",
                                list_transforms=list_transforms)
     test_dataloader = DataLoader(dataset=test_set,
-                                 batch_size=32,
+                                 batch_size=64,
                                  shuffle=True,
                                  num_workers=8)
 
-    lr = 1e-3
+    lr = 5e-4
     criteron = Hinge_loss()
     # init model
-    model = PerfGAN(g_down_channels=[2, 32, 64, 128],
+    model = PerfGAN(mode="dev",
+                    g_down_channels=[2, 32, 64, 128],
                     g_up_channels=[512, 128, 64, 32, 2],
-                    g_down_dilations=[3, 1, 1, 1],
+                    g_down_dilations=[1, 1, 1, 1],
                     g_up_dilations=[3, 1, 1, 1, 1],
-                    d_conv_channels=[2, 64, 128, 1024, 512, 32, 1],
-                    d_dilations=[3, 3, 1, 1, 1, 1],
+                    d_conv_channels=[2, 64, 512, 32, 1],
+                    d_dilations=[1, 1, 1, 1, 1, 1],
                     d_h_dims=[n_sample, 512, 64, 1],
                     criteron=criteron,
                     regularization=True,
@@ -338,7 +351,7 @@ if __name__ == "__main__":
     model.ddsp = torch.jit.load("ddsp_violin.ts").eval()
 
     tb_logger = pl_loggers.TensorBoardLogger('runs/')
-    trainer = pl.Trainer(gpus=0,
+    trainer = pl.Trainer(gpus=1,
                          max_epochs=10000,
                          logger=tb_logger,
                          log_every_n_steps=10)

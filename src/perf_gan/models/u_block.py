@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
-from perf_gan.models.conv_blocks import ConvBlock
+from perf_gan.models.conv_blocks import ConvTransposeBlock
 from perf_gan.utils.get_padding import get_padding
 
 
 class UBlock(nn.Module):
     """Upsampling block"""
+
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
@@ -24,28 +25,28 @@ class UBlock(nn.Module):
         if not last:
             self.main = nn.Sequential(
                 nn.Upsample(scale_factor=2),
-                ConvBlock(in_channels,
-                          out_channels,
-                          dilation=dilation,
-                          norm=True),
-                ConvBlock(out_channels,
-                          out_channels,
-                          dilation=dilation,
-                          norm=True))
+                ConvTransposeBlock(in_channels,
+                                   out_channels,
+                                   dilation=dilation,
+                                   norm=True),
+                ConvTransposeBlock(out_channels,
+                                   out_channels,
+                                   dilation=dilation,
+                                   norm=True))
 
             self.residual = nn.Sequential(
                 nn.Upsample(scale_factor=2),
-                ConvBlock(in_channels=in_channels,
-                          out_channels=out_channels,
-                          dilation=dilation,
-                          norm=True))
+                ConvTransposeBlock(in_channels=in_channels,
+                                   out_channels=out_channels,
+                                   dilation=dilation,
+                                   norm=True))
         else:
             self.residual = nn.Sequential(
-                nn.Conv1d(in_channels,
-                          out_channels,
-                          kernel_size=3,
-                          padding=get_padding(3, 1, dilation),
-                          dilation=dilation))
+                nn.ConvTranspose1d(in_channels,
+                                   out_channels,
+                                   kernel_size=3,
+                                   padding=get_padding(3, 1, dilation),
+                                   dilation=dilation))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute pass forward for the Upsampling convolution block.
