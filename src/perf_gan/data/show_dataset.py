@@ -21,24 +21,31 @@ class Visualizer:
                 onsets, offsets = dataset["onsets"], dataset["offsets"]
                 mask = dataset["mask"]
 
-                plt.subplot(1, 3, 1)
-                plt.plot(u_f0, label="unexpressive")
-                plt.plot(e_f0, label="expressive")
-                plt.plot(onsets, label="onsets")
-                plt.plot(offsets, label="offsets")
-                plt.title("pitch")
-                plt.subplot(1, 3, 2)
-                plt.plot(u_lo, label="unexpressive")
-                plt.plot(e_lo, label="expressive")
-                plt.plot(onsets, label="onsets")
-                plt.plot(offsets, label="offsets")
-                plt.title("loudness")
+                # plt.subplot(1, 3, 1)
+                # plt.plot(u_f0, label="unexpressive", color="red")
+                # plt.plot(e_f0, label="expressive", color="blue")
+                # plt.plot(onsets, label="onsets")
+                # plt.plot(offsets, label="offsets")
+                # plt.xlabel("time")
+                # plt.ylabel("p")
+                # plt.legend()
+                # plt.title("Pitch (MIDI)")
 
-                plt.subplot(1, 3, 3)
-                plt.matshow(mask)
+                # plt.subplot(1, 3, 2)
+                # plt.plot(u_lo, label="unexpressive", color="red")
+                # plt.plot(e_lo, label="expressive", color="blue")
+                # plt.plot(onsets, label="onsets")
+                # plt.plot(offsets, label="offsets")
+                # plt.xlabel("time")
+                # plt.ylabel("V")
+                # plt.legend()
+                # plt.title("Volume (MIDI)")
+                # plt.legend()
+                # plt.plot()
+
+                plt.figure(figsize=(5, 8))
+                plt.matshow(mask, fignum=1, aspect='auto')
                 plt.title("mask")
-
-                plt.legend()
                 plt.show()
 
 

@@ -119,8 +119,8 @@ class MaskSmoothing:
 
 
 def main():
-    path = "data/dataset.pickle"
-    saving_path = "data/dataset_ms.pickle"
+    path = "data/dataset_aug.pickle"
+    saving_path = "data/dataset_aug_    ms.pickle"
     ms = MaskSmoothing(path)
     ms.smoothing(64)
 

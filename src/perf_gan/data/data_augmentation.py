@@ -5,7 +5,6 @@ import torch.nn as nn
 
 
 class DataAugmentation:
-
     def __init__(self, path):
         self.path = path
 
@@ -31,15 +30,18 @@ class DataAugmentation:
 
     def f0_shift(self, shifts):
 
+        s_u_f0 = self.u_f0
+        s_e_f0 = self.e_f0
         for shift in shifts:
 
             assert int(
                 shift) == shift, f"Shift should be an Integer, got {shift}"
 
-            for i in range(len(self.u_f0)):
+            N = len(self.u_f0)
+            for i in range(N):
                 # apply shift on pitches (midi norm)
-                self.u_f0 += [self.u_f0[i] + shift]
-                self.e_f0 += [self.e_f0[i] + shift]
+                self.u_f0 += [s_u_f0[i] + shift]
+                self.e_f0 += [s_e_f0[i] + shift]
 
             # replicate others
 
