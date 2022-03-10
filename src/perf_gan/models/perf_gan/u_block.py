@@ -1,12 +1,11 @@
 import torch
 import torch.nn as nn
-from perf_gan.models.conv_blocks import ConvTransposeBlock
+from perf_gan.models.blocks.conv_blocks import ConvTransposeBlock
 from perf_gan.utils.get_padding import get_padding
 
 
 class UBlock(nn.Module):
     """Upsampling block"""
-
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
@@ -47,7 +46,7 @@ class UBlock(nn.Module):
                                    kernel_size=3,
                                    padding=get_padding(3, 1, dilation),
                                    dilation=dilation))
-        
+
         self.gru = nn.GRU(out_channels, out_channels, batch_first=True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -67,7 +66,7 @@ class UBlock(nn.Module):
         else:
             main = self.main(x)
 
-        x =  main + residual
+        x = main + residual
 
         x = x.permute(0, 2, 1)
         x, _ = self.gru(x)

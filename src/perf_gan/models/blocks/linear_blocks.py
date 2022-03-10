@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from typing import List
 
-from perf_gan.models.conv_blocks import ConvBlock
+from perf_gan.models.blocks.conv_blocks import ConvBlock
 
 
 class LinBlock(nn.Module):
