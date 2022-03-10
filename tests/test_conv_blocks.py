@@ -1,9 +1,9 @@
 import pytest
 import torch
 
-from perf_gan.models.conv_blocks import ConvBlock
-from perf_gan.models.u_block import UBlock
-from perf_gan.models.d_block import DBlock
+from perf_gan.models.blocks.conv_blocks import ConvBlock
+from perf_gan.models.perf_gan.u_block import UBlock
+from perf_gan.models.perf_gan.d_block import DBlock
 
 
 def test_dims_conv1d():

@@ -2,8 +2,8 @@ from typing import List
 import pytest
 import torch
 
-from perf_gan.models.generator import Generator
-from perf_gan.models.discriminator import Discriminator
+from perf_gan.models.perf_gan.generator import Generator
+from perf_gan.models.perf_gan.discriminator import Discriminator
 
 
 @pytest.mark.parametrize(
