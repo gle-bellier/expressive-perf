@@ -29,6 +29,7 @@ import torch.nn as nn
 
 
 class MaskSmoothing:
+
     def __init__(self, path):
         self.path = path
 
@@ -119,8 +120,8 @@ class MaskSmoothing:
 
 
 def main():
-    path = "data/dataset.pickle"
-    saving_path = "data/dataset_ms.pickle"
+    path = "data/dataset_aug.pickle"
+    saving_path = "data/dataset_aug_ms.pickle"
     ms = MaskSmoothing(path)
     ms.smoothing(64)
 
