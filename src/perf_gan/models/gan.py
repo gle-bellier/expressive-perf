@@ -96,7 +96,7 @@ class PerfGAN(pl.LightningModule):
         # generate deviations or whole contours
 
         if self.mode == "dev":
-            return self.gen(x) + x
+            return self.gen(x) + x[:, 0:2, :]
         else:
             return self.gen(x)
 
@@ -183,8 +183,10 @@ class PerfGAN(pl.LightningModule):
         u_contours = torch.cat([u_f0, u_lo], -2)
         e_contours = torch.cat([e_f0, e_lo], -2)
 
+        z = torch.randn_like(u_contours)
+        x = torch.cat([u_contours, z], -2)
         # generate new contours
-        gen_contours = self(u_contours)
+        gen_contours = self(x)
 
         # train discriminator
         disc_loss = self.disc_step(u_contours, e_contours, gen_contours)
@@ -199,7 +201,15 @@ class PerfGAN(pl.LightningModule):
                                                       gen_contours, mask)
 
         g_opt.zero_grad()
-        self.manual_backward(gen_loss + 10 * (pitch_loss + lo_loss))
+
+        # we train the generator alternatively on the adversarial objective and
+        # the accuracy of the generated notes
+
+        if self.train_idx % 2:
+            self.manual_backward(pitch_loss + lo_loss)
+        else:
+            self.manual_backward(gen_loss)
+
         g_opt.step()
 
         if self.reg:
@@ -228,13 +238,17 @@ class PerfGAN(pl.LightningModule):
             batch_idx (int): batch index
         """
         self.val_idx += 1
-        if self.val_idx % 10 == 0:
+        if self.val_idx % 50 == 0:
 
             u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask = batch
 
             u_contours = torch.cat([u_f0, u_lo], -2)
             e_contours = torch.cat([e_f0, e_lo], -2)
-            gen_contours = self(u_contours)
+
+            z = torch.randn_like(u_contours)
+            x = torch.cat([u_contours, z], -2)
+            # generate new contours
+            gen_contours = self(x)
 
             u_f0, u_lo = u_contours[0].split(1, -2)
             e_f0, e_lo = e_contours[0].split(1, -2)
@@ -281,7 +295,7 @@ class PerfGAN(pl.LightningModule):
             if self.ddsp is not None:
                 g_f0 = g_f0.float().reshape(1, -1, 1)
                 # artificialy add 3db
-                g_lo = g_lo.float().reshape(1, -1, 1) + 3
+                g_lo = g_lo.float().reshape(1, -1, 1) + 2
                 signal = self.ddsp(g_f0, g_lo)
                 signal = signal.reshape(-1).cpu().numpy()
                 self.logger.experiment.add_audio(
@@ -302,9 +316,11 @@ class PerfGAN(pl.LightningModule):
         b1 = self.hparams.b1
         b2 = self.hparams.b2
 
-        opt_g = torch.optim.Adam(self.gen.parameters(), lr=lr, betas=(b1, b2))
-        opt_d = torch.optim.Adam(self.disc.parameters(), lr=lr, betas=(b1, b2))
-        #opt_d = torch.optim.SGD(self.disc.parameters(), lr=lr, momentum=.5)
+        opt_g = torch.optim.Adam(self.gen.parameters(),
+                                 lr=lr)  #, betas=(b1, b2))
+        opt_d = torch.optim.Adam(self.disc.parameters(),
+                                 lr=lr)  #, betas=(b1, b2))
+        #opt_d = torch.optim.SGD(self.disc.parameters(), lr=lr)
 
         return opt_g, opt_d
 
@@ -330,17 +346,17 @@ if __name__ == "__main__":
                                  shuffle=True,
                                  num_workers=8)
 
-    lr = 5e-4
+    lr = 1e-3
     criteron = Hinge_loss()
     # init model
     model = PerfGAN(mode="dev",
-                    g_down_channels=[2, 32, 64, 128],
-                    g_up_channels=[512, 128, 64, 32, 2],
-                    g_down_dilations=[1, 1, 1, 1],
-                    g_up_dilations=[3, 1, 1, 1, 1],
-                    d_conv_channels=[2, 64, 512, 32, 1],
-                    d_dilations=[1, 1, 1, 1, 1, 1],
-                    d_h_dims=[n_sample, 512, 64, 1],
+                    g_down_channels=[4, 16, 64, 128, 512],
+                    g_up_channels=[1024, 512, 128, 64, 16, 2],
+                    g_down_dilations=[1, 1, 1, 1, 1],
+                    g_up_dilations=[1, 1, 1, 1, 1, 1],
+                    d_conv_channels=[2, 64, 128, 256, 512, 1024],
+                    d_dilations=[1, 1, 1, 1, 1],
+                    d_h_dims=[n_sample, 512, 128, 64, 1],
                     criteron=criteron,
                     regularization=True,
                     lr=lr,
@@ -351,9 +367,11 @@ if __name__ == "__main__":
     model.ddsp = torch.jit.load("ddsp_violin.ts").eval()
 
     tb_logger = pl_loggers.TensorBoardLogger('runs/')
-    trainer = pl.Trainer(gpus=1,
-                         max_epochs=10000,
-                         logger=tb_logger,
-                         log_every_n_steps=10)
+    trainer = pl.Trainer(
+        gpus=1,
+        max_epochs=10000,
+        logger=tb_logger,
+    )
+    #log_every_n_steps=10)
 
     trainer.fit(model, train_dataloader, test_dataloader)

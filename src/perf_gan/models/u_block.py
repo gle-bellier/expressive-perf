@@ -47,7 +47,7 @@ class UBlock(nn.Module):
                                    kernel_size=3,
                                    padding=get_padding(3, 1, dilation),
                                    dilation=dilation))
-        
+
         self.gru = nn.GRU(out_channels, out_channels, batch_first=True)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -67,7 +67,7 @@ class UBlock(nn.Module):
         else:
             main = self.main(x)
 
-        x =  main + residual
+        x = main + residual
 
         x = x.permute(0, 2, 1)
         x, _ = self.gru(x)
