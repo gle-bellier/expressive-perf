@@ -21,6 +21,7 @@ class EncoderBlock(nn.Module):
     def forward(self, x):
         x = self.in_conv(x)
 
+        self.gru.flatten_parameters()
         x = x.permute(0, 2, 1)
         x, _ = self.gru(x)
         x = x.permute(0, 2, 1)
@@ -49,6 +50,5 @@ class Encoder(nn.Module):
 
         for block in self.encoder:
             x = block(x)
-            print(x.shape)
 
         return x

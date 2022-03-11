@@ -35,12 +35,4 @@ class Generator(nn.Module):
 
         for block in self.encoder:
             x = block(x)
-            print(x.shape)
-
         return x
-
-
-if __name__ == "__main__":
-    x = torch.randn(32, 2, 1024)
-    g = Generator([2, 64, 128, 512, 1024])
-    g(x)

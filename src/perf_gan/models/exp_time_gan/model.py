@@ -2,12 +2,26 @@ import torch
 import torch.nn as nn
 
 import pytorch_lightning as pl
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
+import pytorch_lightning as pl
+from pytorch_lightning import loggers as pl_loggers
 
 from perf_gan.models.exp_time_gan.generator import Generator
 from perf_gan.models.exp_time_gan.discriminator import Discriminator
 
 from perf_gan.models.exp_time_gan.encoder import Encoder
 from perf_gan.models.exp_time_gan.decoder import Decoder
+
+from perf_gan.data.contours_dataset import ContoursDataset
+from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
+
+from perf_gan.losses.hinge_loss import Hinge_loss
+from perf_gan.losses.midi_loss import Midi_loss
+
+import warnings
+
+warnings.filterwarnings('ignore')
 
 
 class ExpTimeGAN(pl.LightningModule):
@@ -27,6 +41,8 @@ class ExpTimeGAN(pl.LightningModule):
                                   dropout=0)
 
         self.save_hyperparameters()
+
+        self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=2).cuda()
 
     def forward(self, u_c, e_c):
 

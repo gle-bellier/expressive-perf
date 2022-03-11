@@ -47,18 +47,3 @@ class Discriminator(nn.Module):
             x = l(x)
 
         return x
-
-
-if __name__ == '__main__':
-    n_sample = 1024
-    channels = [2, 16, 128, 512]
-    div = 4**(len(channels) - 1)
-
-    in_size = int(channels[-1] * n_sample / div)
-
-    print(in_size)
-
-    d = Discriminator(channels, [in_size, 1])
-    x = torch.randn(64, 2, 1024)
-
-    print(d(x).shape)

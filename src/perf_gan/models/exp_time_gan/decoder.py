@@ -21,21 +21,15 @@ class DecoderBlock(nn.Module):
 
     def forward(self, x):
         x = self.in_conv(x)
-        print("out in conv : ", x.shape)
-        pass
+        self.gru.flatten_parameters()
 
         x = x.permute(0, 2, 1)
         x, _ = self.gru(x)
         x = x.permute(0, 2, 1)
 
-        print("out gru conv : ", x.shape)
-
         x = self.up(x)
-
-        print("out upsampling ", x.shape)
         x = self.out_conv(x)
 
-        print("out out conv : ", x.shape)
         return x
 
 
@@ -56,10 +50,7 @@ class Decoder(nn.Module):
 
     def forward(self, x):
 
-        print(x.shape)
-
         for block in self.decoder:
             x = block(x)
-            print(x.shape)
 
         return x
