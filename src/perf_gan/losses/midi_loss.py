@@ -5,6 +5,7 @@ from numba import jit
 
 
 class Midi_loss(nn.Module):
+
     def __init__(self, f0_threshold=.5, lo_threshold=.5):
         """Pitch loss estimating how accurate are expressive pitch contours according to 
         the unexpressive contours (the reference). Note to note mean frequency comparison. 
@@ -51,4 +52,4 @@ class Midi_loss(nn.Module):
         diff = torch.abs(mean_gen - mean_target)
         loss = torch.mean(torch.relu(diff - threshold))
 
-        return loss * (torch.exp(loss))
+        return loss * torch.exp(loss)
