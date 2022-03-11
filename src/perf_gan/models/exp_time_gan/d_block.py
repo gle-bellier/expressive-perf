@@ -1,13 +1,12 @@
 from typing import List
 import torch
 import torch.nn as nn
-from perf_gan.models.conv_blocks import ConvBlock
+from perf_gan.models.blocks.conv_blocks import ConvBlock
 
 
 class DBlock(nn.Module):
     """Down sampling block for the U-net architecture
     """
-
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
@@ -41,7 +40,6 @@ class DBlock(nn.Module):
             torch.Tensor: output tensor  of size (B, out_C, L//2)
         """
         x = self.conv1(x)
-
 
         if not self.first:
             x = self.avg(x)

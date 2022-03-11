@@ -1,12 +1,11 @@
 import torch
 import torch.nn as nn
-from perf_gan.models.conv_blocks import ConvTransposeBlock
+from perf_gan.models.blocks.conv_blocks import ConvTransposeBlock
 from perf_gan.utils.get_padding import get_padding
 
 
 class UBlock(nn.Module):
     """Upsampling block"""
-
     def __init__(self,
                  in_channels: int,
                  out_channels: int,

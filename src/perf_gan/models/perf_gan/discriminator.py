@@ -2,14 +2,13 @@ import torch
 import torch.nn as nn
 from typing import List
 
-from perf_gan.models.conv_blocks import ConvBlock
-from perf_gan.models.linear_blocks import LinBlock
+from perf_gan.models.blocks.conv_blocks import ConvBlock
+from perf_gan.models.blocks.linear_blocks import LinBlock
 
 
 class Discriminator(nn.Module):
     """Discriminator for performance contours modelling relying on a U-Net architecture
     """
-
     def __init__(self, conv_channels: List[int], dilations: List[int],
                  h_dims: List[int]) -> None:
         """Initialize the discriminator of the performance GAN. 

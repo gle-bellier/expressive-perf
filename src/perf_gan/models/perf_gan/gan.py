@@ -10,11 +10,10 @@ import matplotlib.pyplot as plt
 from collections import OrderedDict
 from typing import List, Tuple
 
-from perf_gan.models.generator import Generator
-from perf_gan.models.discriminator import Discriminator
+from perf_gan.models.perf_gan.generator import Generator
+from perf_gan.models.perf_gan.discriminator import Discriminator
 
 from perf_gan.data.contours_dataset import ContoursDataset
-
 from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
 
 from perf_gan.losses.lsgan_loss import LSGAN_loss
@@ -27,7 +26,6 @@ warnings.filterwarnings('ignore')
 
 
 class PerfGAN(pl.LightningModule):
-
     def __init__(self, mode: str, g_down_channels: List[int],
                  g_up_channels: List[int], g_down_dilations: List[int],
                  g_up_dilations: List[int], d_conv_channels: List[int],
