@@ -121,11 +121,7 @@ class MaskSmoothing:
 
 def main():
     path = "data/dataset_aug.pickle"
-<<<<<<< HEAD
     saving_path = "data/dataset_aug_ms.pickle"
-=======
-    saving_path = "data/dataset_aug_    ms.pickle"
->>>>>>> 59212c1a982305162203c0f7c9e2b661a317cb13
     ms = MaskSmoothing(path)
     ms.smoothing(64)
 
