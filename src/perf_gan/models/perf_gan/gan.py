@@ -14,7 +14,6 @@ from perf_gan.models.perf_gan.generator import Generator
 from perf_gan.models.perf_gan.discriminator import Discriminator
 
 from perf_gan.data.contours_dataset import ContoursDataset
-
 from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
 
 from perf_gan.losses.lsgan_loss import LSGAN_loss
