@@ -25,7 +25,6 @@ warnings.filterwarnings('ignore')
 
 
 class ExpTimeGAN(pl.LightningModule):
-
     def __init__(self, channels, disc_channels, disc_h_dims, reg,
                  list_transforms, lr, b1, b2):
         super(ExpTimeGAN, self).__init__()
@@ -66,10 +65,27 @@ class ExpTimeGAN(pl.LightningModule):
         rec_c = self.ae(e_c)
 
         # generation
-        #gen_c = self.gen(u_c)
-        gen_c = 0
+        gen_c = self.gen(u_c)
 
         return rec_c, gen_c
+
+    def gen_step(self, u_c, e_c, gen_c, mask):
+
+        disc_e = self.disc(e_c).view(-1)
+        disc_gen = self.disc(gen_c).view(-1)
+
+        gen_loss = self.criteron.gen_loss(disc_e, disc_gen)
+
+        return gen_loss
+
+    def disc_step(self, u_c, e_c, gen_c):
+
+        disc_e = self.disc(e_c).view(-1)
+        disc_gen = self.disc(gen_c.detach()).view(-1)
+
+        disc_loss = self.criteron.disc_loss(disc_e, disc_gen)
+
+        return disc_loss
 
     def training_step(self, batch, batch_idx):
         opt_ae, opt_gen, opt_disc = self.optimizers()
@@ -82,26 +98,57 @@ class ExpTimeGAN(pl.LightningModule):
         rec_c, gen_c = self(u_c, e_c)
 
         # train auto encoder
-
         rec_loss = torch.nn.functional.mse_loss(rec_c, e_c)
 
         opt_ae.zero_grad()
         self.manual_backward(rec_loss)
         opt_ae.step()
 
-        self.log("train/rec_loss", rec_loss)
+        # train GAN
+        # train discriminator
 
-        return {"e_c": e_c, "rec_c": rec_c}
+        disc_loss = self.disc_step(u_c, e_c, gen_c)
+        self.disc.zero_grad()
+        self.manual_backward(disc_loss)
+        opt_disc.step()
+
+        # train generator
+        gen_loss = self.gen_step(u_c, e_c, gen_c, mask)
+
+        opt_gen.zero_grad()
+        self.manual_backward(gen_loss)
+        opt_gen.step()
+
+        # decode gen contours
+        gen_c = self.ae.decode(gen_c)
+
+        self.log("train/rec_loss", rec_loss)
+        self.logger.experiment.add_scalars(
+            "train/abversarial",
+            {
+                "gen": gen_loss,
+                "disc": disc_loss
+            },
+            global_step=self.train_idx,
+        )
+        self.train_idx += 1
+
+        return {"u_c": u_c, "e_c": e_c, "rec_c": rec_c, "gen_c": gen_c}
 
     def training_epoch_end(self, outputs):
 
+        last_u_c = outputs[-1]["u_c"]
         last_e_c = outputs[-1]["e_c"]
         last_rec_c = outputs[-1]["rec_c"]
+        last_gen_c = outputs[-1]["gen_c"]
 
         # plot last reconstruction
-
+        u_f0, u_lo = last_u_c[-1, ...].split(1, -2)
         e_f0, e_lo = last_e_c[-1, ...].split(1, -2)
         rec_f0, rec_lo = last_rec_c[-1, ...].split(1, -2)
+        gen_f0, gen_lo = last_gen_c[-1, ...].split(1, -2)
+
+        # plot reconstruction
 
         plt.plot(e_f0.squeeze().cpu().detach(), label="e_f0")
         plt.plot(rec_f0.squeeze().cpu().detach(), label="rec_f0")
@@ -112,7 +159,18 @@ class ExpTimeGAN(pl.LightningModule):
         plt.plot(rec_lo.squeeze().cpu().detach(), label="rec_lo")
         plt.legend()
         self.logger.experiment.add_figure("rec/lo", plt.gcf(), self.train_idx)
-        self.train_idx += 1
+
+        #plot generation
+
+        plt.plot(u_f0.squeeze().cpu().detach(), label="u_f0")
+        plt.plot(gen_f0.squeeze().cpu().detach(), label="gen_f0")
+        plt.legend()
+        self.logger.experiment.add_figure("gen/f0", plt.gcf(), self.train_idx)
+
+        plt.plot(u_lo.squeeze().cpu().detach(), label="u_lo")
+        plt.plot(gen_lo.squeeze().cpu().detach(), label="gen_lo")
+        plt.legend()
+        self.logger.experiment.add_figure("gen/lo", plt.gcf(), self.train_idx)
 
     def configure_optimizers(self):
         """Configure both generator and discriminator optimizers
