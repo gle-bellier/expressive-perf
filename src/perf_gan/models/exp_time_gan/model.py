@@ -6,12 +6,12 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 import pytorch_lightning as pl
 from pytorch_lightning import loggers as pl_loggers
+import matplotlib.pyplot as plt
 
 from perf_gan.models.exp_time_gan.generator import Generator
 from perf_gan.models.exp_time_gan.discriminator import Discriminator
 
-from perf_gan.models.exp_time_gan.encoder import Encoder
-from perf_gan.models.exp_time_gan.decoder import Decoder
+from perf_gan.models.exp_time_gan.ae import AutoEncoder
 
 from perf_gan.data.contours_dataset import ContoursDataset
 from perf_gan.data.preprocess import PitchTransform, LoudnessTransform
@@ -25,6 +25,7 @@ warnings.filterwarnings('ignore')
 
 
 class ExpTimeGAN(pl.LightningModule):
+
     def __init__(self, channels, disc_channels, disc_h_dims, reg,
                  list_transforms, lr, b1, b2):
         super(ExpTimeGAN, self).__init__()
@@ -33,8 +34,7 @@ class ExpTimeGAN(pl.LightningModule):
         self.disc_channels = disc_channels
         self.disc_h_dims = disc_h_dims
 
-        self.encoder = Encoder(self.channels, dropout=0)
-        self.decoder = Decoder(self.channels[::-1], dropout=0)
+        self.ae = AutoEncoder(channels, dropout=0.5)
 
         self.gen = Generator(self.channels, dropout=0)
         self.disc = Discriminator(self.disc_channels,
@@ -63,21 +63,56 @@ class ExpTimeGAN(pl.LightningModule):
     def forward(self, u_c, e_c):
 
         # reconstruction
+        rec_c = self.ae(e_c)
 
-        h = self.encoder(e_c)
-        recons = self.decoder(h)
+        # generation
+        #gen_c = self.gen(u_c)
+        gen_c = 0
 
-        gen_c = self.gen(u_c)
-
-        return recons, gen_c
+        return rec_c, gen_c
 
     def training_step(self, batch, batch_idx):
-        g_opt, d_opt = self.optimizers()
+        opt_ae, opt_gen, opt_disc = self.optimizers()
 
         u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask = batch
 
-        u_contours = torch.cat([u_f0, u_lo], -2)
-        e_contours = torch.cat([e_f0, e_lo], -2)
+        u_c = torch.cat([u_f0, u_lo], -2)
+        e_c = torch.cat([e_f0, e_lo], -2)
+
+        rec_c, gen_c = self(u_c, e_c)
+
+        # train auto encoder
+
+        rec_loss = torch.nn.functional.mse_loss(rec_c, e_c)
+
+        opt_ae.zero_grad()
+        self.manual_backward(rec_loss)
+        opt_ae.step()
+
+        self.log("train/rec_loss", rec_loss)
+
+        return {"e_c": e_c, "rec_c": rec_c}
+
+    def training_epoch_end(self, outputs):
+
+        last_e_c = outputs[-1]["e_c"]
+        last_rec_c = outputs[-1]["rec_c"]
+
+        # plot last reconstruction
+
+        e_f0, e_lo = last_e_c[-1, ...].split(1, -2)
+        rec_f0, rec_lo = last_rec_c[-1, ...].split(1, -2)
+
+        plt.plot(e_f0.squeeze().cpu().detach(), label="e_f0")
+        plt.plot(rec_f0.squeeze().cpu().detach(), label="rec_f0")
+        plt.legend()
+        self.logger.experiment.add_figure("rec/f0", plt.gcf(), self.train_idx)
+
+        plt.plot(e_lo.squeeze().cpu().detach(), label="e_lo")
+        plt.plot(rec_lo.squeeze().cpu().detach(), label="rec_lo")
+        plt.legend()
+        self.logger.experiment.add_figure("rec/lo", plt.gcf(), self.train_idx)
+        self.train_idx += 1
 
     def configure_optimizers(self):
         """Configure both generator and discriminator optimizers
@@ -90,25 +125,20 @@ class ExpTimeGAN(pl.LightningModule):
         b1 = self.hparams.b1
         b2 = self.hparams.b2
 
-        opt_encoder = torch.optim.Adam(self.gen.parameters(),
-                                       lr=lr,
-                                       betas=(b1, b2))
-        opt_decoder = torch.optim.Adam(self.disc.parameters(),
-                                       lr=lr,
-                                       betas=(b1, b2))
+        opt_ae = torch.optim.Adam(self.ae.parameters(), lr=lr, betas=(b1, b2))
 
         opt_g = torch.optim.Adam(self.gen.parameters(), lr=lr, betas=(b1, b2))
         opt_d = torch.optim.Adam(self.disc.parameters(), lr=lr, betas=(b1, b2))
 
-        return opt_encoder, opt_decoder, opt_g, opt_d
+        return opt_ae, opt_g, opt_d
 
     def train_dataloader(self):
         self.train_set = ContoursDataset(path="data/dataset_aug.pickle",
                                          list_transforms=self.list_transforms)
-        train_dataloader = DataLoader(dataset=self.train_set,
-                                      batch_size=64,
-                                      shuffle=True,
-                                      num_workers=8)
+        return DataLoader(dataset=self.train_set,
+                          batch_size=64,
+                          shuffle=True,
+                          num_workers=8)
 
     def val_dataloader(self):
         self.test_set = ContoursDataset(path="data/dataset_aug.pickle",
@@ -125,13 +155,13 @@ if __name__ == "__main__":
     })]
 
     n_sample = 1024
-    channels = [2, 16, 128, 512]
+    channels = [2, 128, 256, 512]
     disc_channels = [2, 16, 128, 512]
     div = 4**(len(channels) - 1)
     in_size = int(channels[-1] * n_sample / div)
 
-    model = ExpTimeGAN(channels=[2, 16, 128, 512],
-                       disc_channels=[2, 16, 128, 512],
+    model = ExpTimeGAN(channels=channels,
+                       disc_channels=disc_channels,
                        disc_h_dims=[in_size, 1024, 512, 64, 16, 1],
                        reg=True,
                        list_transforms=list_transforms,
@@ -142,7 +172,7 @@ if __name__ == "__main__":
     #model.ddsp = torch.jit.load("ddsp_violin.ts").eval()
 
     tb_logger = pl_loggers.TensorBoardLogger('runs/')
-    trainer = pl.Trainer(gpus=0,
+    trainer = pl.Trainer(gpus=1,
                          max_epochs=10000,
                          logger=tb_logger,
                          log_every_n_steps=10)

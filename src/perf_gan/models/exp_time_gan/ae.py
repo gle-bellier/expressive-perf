@@ -21,4 +21,5 @@ class AutoEncoder(nn.Module):
 
     def forward(self, x):
         x = self.encode(x)
-        return self.decode(x)
+        x = self.decode(x)
+        return torch.tanh(x)

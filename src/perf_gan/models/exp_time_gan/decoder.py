@@ -5,6 +5,7 @@ from perf_gan.models.blocks.conv_blocks import ConvBlock, ConvTransposeBlock
 
 
 class DecoderBlock(nn.Module):
+
     def __init__(self, in_c, out_c, dilation, dropout, bidirectional=True):
         super(DecoderBlock, self).__init__()
 
@@ -34,6 +35,7 @@ class DecoderBlock(nn.Module):
 
 
 class Decoder(nn.Module):
+
     def __init__(self, channels, dropout=0):
 
         super(Decoder, self).__init__()

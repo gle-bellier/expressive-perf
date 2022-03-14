@@ -5,6 +5,7 @@ from perf_gan.models.blocks.conv_blocks import ConvBlock
 
 
 class EncoderBlock(nn.Module):
+
     def __init__(self, in_c, out_c, dilation, dropout, bidirectional=True):
         super(EncoderBlock, self).__init__()
 
@@ -32,6 +33,7 @@ class EncoderBlock(nn.Module):
 
 
 class Encoder(nn.Module):
+
     def __init__(self, channels, dropout=0):
 
         super(Encoder, self).__init__()
