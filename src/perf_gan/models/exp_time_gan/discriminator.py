@@ -7,6 +7,7 @@ from perf_gan.models.blocks.linear_blocks import LinBlock
 
 
 class Discriminator(nn.Module):
+
     def __init__(self, channels, h_dims, dropout=0):
 
         super(Discriminator, self).__init__()
@@ -28,10 +29,9 @@ class Discriminator(nn.Module):
             LinBlock(in_features, out_features)
             for in_features, out_features in zip(h_dims[:-1], h_dims[1:])
         ])
-        self.avg = nn.AvgPool1d(4)
+        self.avg = nn.AvgPool1d(2)
 
     def forward(self, x):
-
         for conv, rnn in zip(self.conv, self.rnns):
             rnn.flatten_parameters()
             x = conv(x)

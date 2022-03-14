@@ -25,6 +25,7 @@ warnings.filterwarnings('ignore')
 
 
 class ExpTimeGAN(pl.LightningModule):
+
     def __init__(self, channels, disc_channels, disc_h_dims, reg,
                  list_transforms, lr, b1, b2):
         super(ExpTimeGAN, self).__init__()
@@ -35,10 +36,10 @@ class ExpTimeGAN(pl.LightningModule):
 
         self.ae = AutoEncoder(channels, dropout=0.5)
 
-        self.gen = Generator(self.channels, dropout=0)
+        self.gen = Generator(self.channels, dropout=0.5)
         self.disc = Discriminator(self.disc_channels,
                                   self.disc_h_dims,
-                                  dropout=0)
+                                  dropout=0.5)
 
         self.reg = reg
 
@@ -69,19 +70,35 @@ class ExpTimeGAN(pl.LightningModule):
 
         return rec_c, gen_c
 
-    def gen_step(self, u_c, e_c, gen_c, mask):
+    def gen_step(self, u_c, e_c, g_c, mask):
 
         disc_e = self.disc(e_c).view(-1)
-        disc_gen = self.disc(gen_c).view(-1)
+        disc_gen = self.disc(g_c).view(-1)
 
         gen_loss = self.criteron.gen_loss(disc_e, disc_gen)
 
-        return gen_loss
+        # decode gen / exp contours
+        g_c = self.ae.decode(g_c)
+        e_c = self.ae.decode(e_c)
+        # Apply regularization
 
-    def disc_step(self, u_c, e_c, gen_c):
+        u_f0, u_lo = u_c.split(1, 1)
+        g_f0, g_lo = g_c.split(1, 1)
+
+        # apply inverse transform to compare pitches (midi range) and loudness (loudness range)
+        inv_u_f0, inv_u_lo = self.train_set.inverse_transform(u_f0, u_lo)
+        inv_g_f0, inv_g_lo = self.train_set.inverse_transform(g_f0, g_lo)
+
+        # add pitch loss
+        f0_loss, lo_loss = self.midi_loss(inv_g_f0, inv_u_f0, inv_g_lo,
+                                          inv_u_lo, mask)
+
+        return gen_loss, f0_loss, lo_loss
+
+    def disc_step(self, u_c, e_c, g_c):
 
         disc_e = self.disc(e_c).view(-1)
-        disc_gen = self.disc(gen_c.detach()).view(-1)
+        disc_gen = self.disc(g_c.detach()).view(-1)
 
         disc_loss = self.criteron.disc_loss(disc_e, disc_gen)
 
@@ -95,82 +112,104 @@ class ExpTimeGAN(pl.LightningModule):
         u_c = torch.cat([u_f0, u_lo], -2)
         e_c = torch.cat([e_f0, e_lo], -2)
 
-        rec_c, gen_c = self(u_c, e_c)
+        r_c, g_c = self(u_c, e_c)
 
         # train auto encoder
-        rec_loss = torch.nn.functional.mse_loss(rec_c, e_c)
+        rec_loss = torch.nn.functional.mse_loss(r_c, e_c)
 
         opt_ae.zero_grad()
         self.manual_backward(rec_loss)
         opt_ae.step()
 
         # train GAN
-        # train discriminator
+        # train Discriminator
 
-        disc_loss = self.disc_step(u_c, e_c, gen_c)
+        e_c = self.ae.encode(e_c)
+
+        disc_loss = self.disc_step(u_c, e_c, g_c)
         self.disc.zero_grad()
         self.manual_backward(disc_loss)
         opt_disc.step()
 
-        # train generator
-        gen_loss = self.gen_step(u_c, e_c, gen_c, mask)
+        # train Generator
+        gen_loss, f0_loss, lo_loss = self.gen_step(u_c, e_c, g_c, mask)
+
+        e_c = self.ae.decode(e_c)
+        g_c = self.ae.decode(g_c)
 
         opt_gen.zero_grad()
-        self.manual_backward(gen_loss)
+        opt_ae.zero_grad()
+        self.manual_backward(gen_loss + f0_loss + lo_loss)
+        opt_ae.step()
         opt_gen.step()
 
-        # decode gen contours
-        gen_c = self.ae.decode(gen_c)
+        self.do_logs(gen_loss, disc_loss, rec_loss, f0_loss, lo_loss)
 
+        self.train_idx += 1
+
+        return {"u_c": u_c, "e_c": e_c, "r_c": r_c, "g_c": g_c}
+
+    def do_logs(self, gen_loss, disc_loss, rec_loss, f0_loss, lo_loss):
         self.log("train/rec_loss", rec_loss)
+        self.log("train/f0_loss", f0_loss)
+        self.log("train/lo_loss", lo_loss)
         self.logger.experiment.add_scalars(
-            "train/abversarial",
+            "abversarial",
             {
                 "gen": gen_loss,
                 "disc": disc_loss
             },
             global_step=self.train_idx,
         )
-        self.train_idx += 1
 
-        return {"u_c": u_c, "e_c": e_c, "rec_c": rec_c, "gen_c": gen_c}
+    def post_processing(self, outputs, c):
+        last_c = outputs[-1][c]
+
+        f0, lo = last_c[-1, ...].split(1, -2)
+
+        # apply inverse transforms
+        f0, lo = self.train_set.inverse_transform(f0, lo)
+
+        # convert midi to hz / db
+        f0 = self.__midi2hz(f0[0])
+        f0 = f0.squeeze().cpu().detach()
+        lo = lo.squeeze().cpu().detach()
+
+        return f0, lo
 
     def training_epoch_end(self, outputs):
 
-        last_u_c = outputs[-1]["u_c"]
-        last_e_c = outputs[-1]["e_c"]
-        last_rec_c = outputs[-1]["rec_c"]
-        last_gen_c = outputs[-1]["gen_c"]
-
-        # plot last reconstruction
-        u_f0, u_lo = last_u_c[-1, ...].split(1, -2)
-        e_f0, e_lo = last_e_c[-1, ...].split(1, -2)
-        rec_f0, rec_lo = last_rec_c[-1, ...].split(1, -2)
-        gen_f0, gen_lo = last_gen_c[-1, ...].split(1, -2)
+        u_f0, u_lo = self.post_processing(outputs, "u_c")
+        e_f0, e_lo = self.post_processing(outputs, "e_c")
+        r_f0, r_lo = self.post_processing(outputs, "r_c")
+        g_f0, g_lo = self.post_processing(outputs, "g_c")
 
         # plot reconstruction
 
-        plt.plot(e_f0.squeeze().cpu().detach(), label="e_f0")
-        plt.plot(rec_f0.squeeze().cpu().detach(), label="rec_f0")
+        plt.plot(e_f0, label="e_f0")
+        plt.plot(r_f0, label="rec_f0")
         plt.legend()
         self.logger.experiment.add_figure("rec/f0", plt.gcf(), self.train_idx)
 
-        plt.plot(e_lo.squeeze().cpu().detach(), label="e_lo")
-        plt.plot(rec_lo.squeeze().cpu().detach(), label="rec_lo")
+        plt.plot(e_lo, label="e_lo")
+        plt.plot(r_lo, label="rec_lo")
         plt.legend()
         self.logger.experiment.add_figure("rec/lo", plt.gcf(), self.train_idx)
 
         #plot generation
 
-        plt.plot(u_f0.squeeze().cpu().detach(), label="u_f0")
-        plt.plot(gen_f0.squeeze().cpu().detach(), label="gen_f0")
+        plt.plot(u_f0, label="u_f0")
+        plt.plot(g_f0, label="gen_f0")
         plt.legend()
         self.logger.experiment.add_figure("gen/f0", plt.gcf(), self.train_idx)
 
-        plt.plot(u_lo.squeeze().cpu().detach(), label="u_lo")
-        plt.plot(gen_lo.squeeze().cpu().detach(), label="gen_lo")
+        plt.plot(u_lo, label="u_lo")
+        plt.plot(g_lo, label="gen_lo")
         plt.legend()
         self.logger.experiment.add_figure("gen/lo", plt.gcf(), self.train_idx)
+
+    def __midi2hz(self, x):
+        return torch.pow(2, (x - 69) / 12) * 440
 
     def configure_optimizers(self):
         """Configure both generator and discriminator optimizers
@@ -214,9 +253,9 @@ if __name__ == "__main__":
 
     n_sample = 1024
     channels = [2, 128, 256, 512]
-    disc_channels = [2, 16, 128, 512]
-    div = 4**(len(channels) - 1)
-    in_size = int(channels[-1] * n_sample / div)
+    disc_channels = [512, 1024, 512, 256]
+    div = 2**(len(channels) + len(channels) - 2)
+    in_size = int(disc_channels[-1] * n_sample / div)
 
     model = ExpTimeGAN(channels=channels,
                        disc_channels=disc_channels,
@@ -233,6 +272,6 @@ if __name__ == "__main__":
     trainer = pl.Trainer(gpus=1,
                          max_epochs=10000,
                          logger=tb_logger,
-                         log_every_n_steps=10)
+                         log_every_n_steps=5)
 
     trainer.fit(model)
