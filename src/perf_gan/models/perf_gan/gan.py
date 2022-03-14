@@ -189,7 +189,7 @@ class PerfGAN(pl.LightningModule):
         # train discriminator
         disc_loss = self.disc_step(u_contours, e_contours, gen_contours)
 
-        self.disc.zero_grad()
+        d_opt.zero_grad()
         self.manual_backward(disc_loss)
         d_opt.step()
 
