@@ -6,6 +6,7 @@ from sklearn.preprocessing import QuantileTransformer
 class Merger:
     """Merge the MIDI contours dataset files and the audio contours dataset
     """
+
     def __init__(self, midi_path, audio_path):
 
         self.midi_path = midi_path
@@ -83,7 +84,7 @@ def main():
     midi_path = "data/midi/contours/midi_contours.pickle"
     m = Merger(midi_path, audio_path)
 
-    m.merge("data/dataset.pickle")
+    m.merge("data/set.pickle")
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@ from perf_gan.data.audio_contours.extract_descriptors import Extractor
 
 
 class Builder:
+
     def __init__(self, midi_path, save_midi_path, audio_path, save_audio_path):
         self.midi_path = midi_path
         self.save_midi_path = save_midi_path
