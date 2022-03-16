@@ -33,7 +33,7 @@ class Merger:
 
         return db_sample
 
-    def merge(self, path: str, verbose=True) -> None:
+    def merge(self, path: str, ratio=0.9, verbose=True) -> None:
         """Merge the audio and MIDI contours dataset files
 
         Args:
@@ -62,9 +62,13 @@ class Merger:
             print(f"Audio dataset contains {len(audio_contours)} samples")
             print(f"Midi dataset contains {len(midi_contours)} samples")
             print(f"Merged dataset contains {nb_samples} samples")
-        for u_c, e_c in zip(midi_contours[:nb_samples],
-                            audio_contours[:nb_samples]):
 
+        n_split = int(nb_samples * ratio)
+
+        print(f"Train dataset contains {n_split} samples")
+        print(f"Test dataset contains {nb_samples - n_split} samples")
+
+        for u_c, e_c in zip(midi_contours[:n_split], audio_contours[:n_split]):
             data = {
                 "u_f0": u_c["f0"],
                 "u_lo": self.__midi2db(u_c["lo"], scaler_midi, scaler_db),
@@ -74,17 +78,31 @@ class Merger:
                 "offsets": u_c["offsets"],
                 "mask": u_c["mask"]
             }
-            with open(path, "ab+") as file_out:
+            with open(path + "train.pickle", "ab+") as file_out:
+                pickle.dump(data, file_out)
+
+        for u_c, e_c in zip(midi_contours[n_split:nb_samples],
+                            audio_contours[n_split:nb_samples]):
+            data = {
+                "u_f0": u_c["f0"],
+                "u_lo": self.__midi2db(u_c["lo"], scaler_midi, scaler_db),
+                "e_f0": self.__hz2midi(e_c["f0"]),
+                "e_lo": e_c["lo"],
+                "onsets": u_c["onsets"],
+                "offsets": u_c["offsets"],
+                "mask": u_c["mask"]
+            }
+            with open(path + "test.pickle", "ab+") as file_out:
                 pickle.dump(data, file_out)
 
 
 def main():
 
     audio_path = "data/audio/contours/audio_contours.pickle"
-    midi_path = "data/midi/contours/midi_contours.pickle"
+    midi_path = "data/midi/contours/midi_contours_r.pickle"
     m = Merger(midi_path, audio_path)
 
-    m.merge("data/set.pickle")
+    m.merge("data/")
 
 
 if __name__ == '__main__':

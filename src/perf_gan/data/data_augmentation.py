@@ -5,6 +5,7 @@ import torch.nn as nn
 
 
 class DataAugmentation:
+
     def __init__(self, path):
         self.path = path
 
@@ -102,8 +103,8 @@ class DataAugmentation:
 
 
 def main():
-    path = "data/dataset.pickle"
-    saving_path = "data/dataset_aug.pickle"
+    path = "data/train.pickle"
+    saving_path = "data/train_aug.pickle"
     da = DataAugmentation(path)
     da.f0_shift([-2, -1, 1, 2])
 
