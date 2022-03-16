@@ -25,7 +25,6 @@ warnings.filterwarnings('ignore')
 
 
 class ExpTimeGAN(pl.LightningModule):
-
     def __init__(self, channels, disc_channels, disc_h_dims, reg,
                  list_transforms, lr, b1, b2):
         super(ExpTimeGAN, self).__init__()
@@ -137,11 +136,13 @@ class ExpTimeGAN(pl.LightningModule):
         e_c = self.ae.decode(e_c)
         g_c = self.ae.decode(g_c)
 
+        # regularization : freeze decoder
+
+        self.ae.decoder.requires_grad_(False)
         opt_gen.zero_grad()
-        opt_ae.zero_grad()
         self.manual_backward(gen_loss + f0_loss + lo_loss)
-        opt_ae.step()
         opt_gen.step()
+        self.ae.decoder.requires_grad_(True)
 
         self.do_logs(gen_loss, disc_loss, rec_loss, f0_loss, lo_loss)
 
