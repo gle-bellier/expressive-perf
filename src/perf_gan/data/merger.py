@@ -21,7 +21,7 @@ class Merger:
                 pass
 
     def __hz2midi(self, f):
-        return 12 * np.log(f / 440) + 69
+        return np.clip(12 * np.log(f / 440) + 69, 0, 127)
 
     def __midi2db(self, midi_lo_sample, scaler_midi, scaler_db):
 
