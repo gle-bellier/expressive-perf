@@ -31,8 +31,6 @@ class Merger:
         # apply inverse transform to map normal distribution to db distribution
         db_sample = scaler_db.inverse_transform(midi_sample_normal).squeeze()
 
-        return db_sample
-
     def merge(self, path: str, ratio=0.9, verbose=True) -> None:
         """Merge the audio and MIDI contours dataset files
 
