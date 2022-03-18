@@ -2,12 +2,13 @@ import torch
 
 
 class Hinge_loss:
+
     def __init__(self):
         """Hinge loss for GANs
         """
         pass
 
-    def disc_loss(self, dx: torch.Tensor, dgz: torch.Tensor) -> torch.Tensor:
+    def d_loss(self, dx: torch.Tensor, dgz: torch.Tensor) -> torch.Tensor:
         """Compute the discriminator term in the Hinge loss
 
         Args:
@@ -22,7 +23,7 @@ class Hinge_loss:
 
         return loss_real + loss_fake
 
-    def gen_loss(self, dx: torch.Tensor, dgz: torch.Tensor) -> torch.Tensor:
+    def g_loss(self, dx: torch.Tensor, dgz: torch.Tensor) -> torch.Tensor:
         """Compute the generator term in the Hinge loss
 
         Args:

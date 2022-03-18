@@ -2,12 +2,13 @@ import torch
 
 
 class LSGAN_loss:
+
     def __init__(self):
         """Loss used for LSGANs
         """
         pass
 
-    def disc_loss(self, dx: torch.Tensor, dgz: torch.Tensor) -> torch.Tensor:
+    def d_loss(self, dx: torch.Tensor, dgz: torch.Tensor) -> torch.Tensor:
         """Compute the discriminator loss in the LSGAN fashion
 
         Args:
@@ -23,7 +24,7 @@ class LSGAN_loss:
 
         return loss_fake + loss_real
 
-    def gen_loss(self, dx, dgz):
+    def g_loss(self, dx, dgz):
         """Compute the generator loss in the LSGAN fashion
 
         Args:
