@@ -25,6 +25,7 @@ warnings.filterwarnings('ignore')
 
 
 class ExpTimeGAN(pl.LightningModule):
+
     def __init__(self, channels, disc_channels, disc_h_dims, reg,
                  list_transforms, lr, b1, b2):
         super(ExpTimeGAN, self).__init__()
@@ -53,9 +54,11 @@ class ExpTimeGAN(pl.LightningModule):
         self.automatic_optimization = False
         self.ddsp = None
 
-        self.train_set = None
-        self.test_set = None
-        self.list_transforms = list_transforms
+        self.train_set = ContoursDataset(path="data/train_aug.pickle",
+                                         list_transforms=list_transforms)
+
+        self.test_set = ContoursDataset(path="data/test_c.pickle",
+                                        list_transforms=list_transforms)
 
         self.save_hyperparameters()
 
@@ -144,24 +147,54 @@ class ExpTimeGAN(pl.LightningModule):
         opt_gen.step()
         self.ae.decoder.requires_grad_(True)
 
-        self.do_logs(gen_loss, disc_loss, rec_loss, f0_loss, lo_loss)
+        self.do_logs("train", gen_loss, disc_loss, rec_loss, f0_loss, lo_loss)
 
         self.train_idx += 1
 
         return {"u_c": u_c, "e_c": e_c, "r_c": r_c, "g_c": g_c}
 
-    def do_logs(self, gen_loss, disc_loss, rec_loss, f0_loss, lo_loss):
-        self.log("train/rec_loss", rec_loss)
-        self.log("train/f0_loss", f0_loss)
-        self.log("train/lo_loss", lo_loss)
-        self.logger.experiment.add_scalars(
-            "abversarial",
-            {
-                "gen": gen_loss,
-                "disc": disc_loss
-            },
-            global_step=self.train_idx,
-        )
+    def validation_step(self, batch, batch_idx):
+
+        u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask = batch
+
+        u_c = torch.cat([u_f0, u_lo], -2)
+        e_c = torch.cat([e_f0, e_lo], -2)
+
+        r_c, g_c = self(u_c, e_c)
+
+        # test auto encoder
+        rec_loss = torch.nn.functional.mse_loss(r_c, e_c)
+
+        # test GAN
+
+        e_c = self.ae.encode(e_c)
+
+        disc_loss = self.disc_step(u_c, e_c, g_c)
+        gen_loss, f0_loss, lo_loss = self.gen_step(u_c, e_c, g_c, mask)
+
+        e_c = self.ae.decode(e_c)
+        g_c = self.ae.decode(g_c)
+
+        self.do_logs("val", gen_loss, disc_loss, rec_loss, f0_loss, lo_loss)
+
+        self.val_idx += 1
+
+        return {"u_c": u_c, "e_c": e_c, "r_c": r_c, "g_c": g_c}
+
+    def do_logs(self, mode, gen_loss, disc_loss, rec_loss, f0_loss, lo_loss):
+        self.log(f"{mode}/rec_loss", rec_loss)
+        self.log(f"{mode}/f0_loss", f0_loss)
+        self.log(f"{mode}/lo_loss", lo_loss)
+
+        if mode == "train":
+            self.logger.experiment.add_scalars(
+                "abversarial",
+                {
+                    "gen": gen_loss,
+                    "disc": disc_loss
+                },
+                global_step=self.train_idx,
+            )
 
     def post_processing(self, outputs, c):
         last_c = outputs[-1][c]
@@ -231,17 +264,13 @@ class ExpTimeGAN(pl.LightningModule):
         return opt_ae, opt_g, opt_d
 
     def train_dataloader(self):
-        self.train_set = ContoursDataset(path="data/dataset_aug.pickle",
-                                         list_transforms=self.list_transforms)
         return DataLoader(dataset=self.train_set,
-                          batch_size=64,
+                          batch_size=128,
                           shuffle=True,
                           num_workers=8)
 
     def val_dataloader(self):
-        self.test_set = ContoursDataset(path="data/dataset_aug.pickle",
-                                        list_transforms=self.list_transforms)
-        return DataLoader(self.test_set, batch_size=64, num_workers=8)
+        return DataLoader(self.test_set, batch_size=128, num_workers=8)
 
 
 if __name__ == "__main__":

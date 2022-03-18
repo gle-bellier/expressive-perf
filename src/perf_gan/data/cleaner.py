@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 
-class DataAugmentation:
+class Cleaner:
 
     def __init__(self, path):
         self.path = path
@@ -29,28 +29,41 @@ class DataAugmentation:
             except EOFError:
                 pass
 
-    def f0_shift(self, shifts):
+    def clean(self):
+        keep_u_f0 = []
+        keep_e_f0 = []
+        keep_u_lo = []
+        keep_e_lo = []
+        keep_onsets = []
+        keep_offsets = []
+        keep_mask = []
 
-        s_u_f0 = self.u_f0
-        s_e_f0 = self.e_f0
-        for shift in shifts:
+        print("Initial length: ", len(self.u_f0))
+        for i in range(len(self.u_f0)):
+            if len(self.mask[i].shape) == 2:
+                # mask is correct
+                # then add to the dataset
+                keep_u_f0 += [self.u_f0[i]]
+                keep_u_lo += [self.u_lo[i]]
+                keep_e_f0 += [self.e_f0[i]]
+                keep_e_lo += [self.e_lo[i]]
+                keep_onsets += [self.onsets[i]]
+                keep_offsets += [self.offsets[i]]
+                keep_mask += [self.mask[i]]
+            else:
+                print("ALERT")
 
-            assert int(
-                shift) == shift, f"Shift should be an Integer, got {shift}"
+        print("Length after cleaning: ", len(keep_u_f0))
 
-            N = len(self.u_f0)
-            for i in range(N):
-                # apply shift on pitches (midi norm)
-                self.u_f0 += [s_u_f0[i] + shift]
-                self.e_f0 += [s_e_f0[i] + shift]
+        self.u_f0 = keep_u_f0
+        self.u_lo = keep_u_lo
 
-            # replicate others
+        self.e_f0 = keep_e_f0
+        self.e_lo = keep_e_lo
 
-            self.u_lo += self.u_lo
-            self.e_lo += self.e_lo
-            self.onsets += self.onsets
-            self.offsets += self.offsets
-            self.mask += self.mask
+        self.onsets = keep_onsets
+        self.offsets = keep_offsets
+        self.mask = keep_mask
 
     def __load(self):
 
@@ -103,13 +116,12 @@ class DataAugmentation:
 
 
 def main():
-    path = "data/train_c.pickle"
-    saving_path = "data/train_aug.pickle"
-    da = DataAugmentation(path)
-    da.f0_shift([-2, -1, 1, 2])
+    path = "data/test.pickle"
+    saving_path = "data/test_c.pickle"
+    da = Cleaner(path)
+    da.clean()
 
     da.write(saving_path)
-    print(len(da.u_lo))
 
 
 if __name__ == "__main__":

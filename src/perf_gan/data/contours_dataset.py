@@ -11,6 +11,7 @@ from perf_gan.data.preprocess import Identity, PitchTransform, LoudnessTransform
 
 
 class ContoursDataset(Dataset):
+
     def __init__(self, path: str, list_transforms=None, valid=False):
         self.path = path
 
@@ -133,6 +134,7 @@ class ContoursDataset(Dataset):
             self.offsets += [torch.tensor(c["offsets"]).float()]
 
             # we need to keep track of the "largest" mask for future padding
+
             m = torch.tensor(c["mask"]).float()
             max_mask_size = max(max_mask_size, m.shape[0])
             l_mask += [m]
