@@ -21,7 +21,7 @@ class Merger:
                 pass
 
     def __hz2midi(self, f):
-        return np.clip(12 * np.log(f / 440) + 69, 0, 127)
+        return 12 * np.log(f / 440) + 69
 
     def __midi2db(self, midi_lo_sample, scaler_midi, scaler_db):
 
@@ -31,7 +31,13 @@ class Merger:
         # apply inverse transform to map normal distribution to db distribution
         db_sample = scaler_db.inverse_transform(midi_sample_normal).squeeze()
 
-        return np.clip(db_sample, -9, 0)
+        return db_sample
+
+    def clip_lo(self, x):
+        return np.clip(x, -9, 0)
+
+    def clip_f0(self, x):
+        return np.clip(x, 0, 127)
 
     def merge(self, path: str, ratio=0.9, verbose=True) -> None:
         """Merge the audio and MIDI contours dataset files
@@ -69,11 +75,15 @@ class Merger:
         print(f"Test dataset contains {nb_samples - n_split} samples")
 
         for u_c, e_c in zip(midi_contours[:n_split], audio_contours[:n_split]):
+
+            u_lo = self.__midi2db(u_c["lo"], scaler_midi, scaler_db)
+            e_f0 = self.__hz2midi(e_c["f0"])
+
             data = {
-                "u_f0": u_c["f0"],
-                "u_lo": self.__midi2db(u_c["lo"], scaler_midi, scaler_db),
-                "e_f0": self.__hz2midi(e_c["f0"]),
-                "e_lo": e_c["lo"],
+                "u_f0": self.clip_f0(u_c["f0"]),
+                "u_lo": self.clip_lo(u_lo),
+                "e_f0": self.clip_f0(e_f0),
+                "e_lo": self.clip_lo(e_c["lo"]),
                 "onsets": u_c["onsets"],
                 "offsets": u_c["offsets"],
                 "mask": u_c["mask"]
