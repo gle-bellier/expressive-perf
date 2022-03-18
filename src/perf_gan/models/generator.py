@@ -2,14 +2,15 @@ import torch
 import torch.nn as nn
 from typing import List
 
-from perf_gan.models.perf_gan.d_block import DBlock
-from perf_gan.models.perf_gan.u_block import UBlock
-from perf_gan.models.perf_gan.bottleneck import Bottleneck
+from perf_gan.models.d_block import DBlock
+from perf_gan.models.u_block import UBlock
+from perf_gan.models.bottleneck import Bottleneck
 
 
 class Generator(nn.Module):
     """ Generator for performance contours modelling relying on a U-Net architecture
     """
+
     def __init__(self, down_channels: List[int], up_channels: List[int],
                  down_dilations: List[int], up_dilations: List[int]) -> None:
         """Initialize the generator of the performance GAN. 
