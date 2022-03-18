@@ -88,10 +88,10 @@ class Builder:
 
 if __name__ == "__main__":
     midi_path = "data/midi/midi"
-    audio_path = "data/audio/samples/extend"
+    audio_path = "data/audio/samples/outdir"
 
     save_midi_path = "data/midi/contours/midi_contours.pickle"
-    save_audio_path = "data/audio/contours/audio_contours_extend.pickle"
+    save_audio_path = "data/audio/contours/audio_contours.pickle"
 
     b = Builder(midi_path, save_midi_path, audio_path, save_audio_path)
     b.build(1024)

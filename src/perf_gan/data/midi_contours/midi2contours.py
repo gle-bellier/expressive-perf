@@ -7,6 +7,7 @@ from typing import Tuple
 
 
 class MidiReader:
+
     def __init__(self, sample_len=1024, frame_rate=100):
         """Useful tool to extract contours from a MIDI file. Be careful in the choice of sample_len: it must
         be greater than the length of the longest silence.
@@ -72,6 +73,7 @@ class MidiReader:
         Returns:
             Tuple[np.ndarray]: onsets, offset and corresponding mask
         """
+
         l_onsets = []
         l_offsets = []
         l_masks = []
@@ -83,6 +85,10 @@ class MidiReader:
 
         i_sample = 0
 
+        # smoothinh the mask to take into account only sustain part
+        # fix attack and release to 20% of the note length
+        SMOOTH_RATIO = 0.2
+
         for note in self.data.notes:
             m = np.ones_like(onsets)
 
@@ -92,20 +98,22 @@ class MidiReader:
             end = int(min(len(self) - 1, note.end *
                           self.frame_rate)) - i_sample * self.sample_len
 
+            smooth = int((end - start) * SMOOTH_RATIO)
+
             if start < l and end < l:
                 onsets[start] = 1
                 offsets[end] = 1
 
                 # update mask
-                m[:start] -= 1
-                m[end:] -= 1
+                m[:start + smooth] -= 1
+                m[max(0, end - smooth):] -= 1
                 mask += [m]
 
             elif start < l and end > l:
                 onsets[start] = 1
 
                 # update mask
-                m[:start] -= 1
+                m[:start + smooth] -= 1
                 mask += [m]
 
                 # add the mask to the list of masks
@@ -127,7 +135,7 @@ class MidiReader:
 
                 m = np.ones_like(onsets)
                 end -= self.sample_len
-                m[end:] -= 1
+                m[max(0, end - smooth):] -= 1
                 mask += [m]
                 m = np.ones_like(onsets)
 
