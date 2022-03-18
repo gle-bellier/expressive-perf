@@ -107,3 +107,7 @@ if __name__ == "__main__":
     x = torch.randn(32, 1, 1024 * 16)
 
     rslt = d(x)
+    for i, scale in enumerate(rslt):
+        print("scale: ", i)
+        print("mean : ", scale[-1].mean())
+    #print(rslt)
