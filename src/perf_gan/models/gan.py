@@ -137,13 +137,13 @@ class PerfGAN(pl.LightningModule):
             inv_g_f0, inv_g_lo = self.dataset.inverse_transform(g_f0, g_lo)
 
             # add pitch loss
-            pitch_loss, lo_loss = self.midi_loss(inv_g_f0, inv_u_f0, inv_g_lo,
-                                                 inv_u_lo, mask)
+            f0_loss, lo_loss = self.midi_loss(inv_g_f0, inv_u_f0, inv_g_lo,
+                                              inv_u_lo, mask)
 
         else:
-            pitch_loss = lo_loss = 0
+            f0_loss = lo_loss = 0
 
-        return G_loss, pitch_loss, lo_loss
+        return G_loss, f0_loss, lo_loss
 
     def disc_step(self, u_c: torch.Tensor, e_c: torch.Tensor,
                   g_c: torch.Tensor) -> torch.Tensor:
@@ -206,46 +206,118 @@ class PerfGAN(pl.LightningModule):
 
         # train generator
 
-        G_loss, pitch_loss, lo_loss = self.gen_step(u_c, e_c, g_c, mask)
-
-        g_opt.zero_grad()
+        G_loss, f0_loss, lo_loss = self.gen_step(u_c, e_c, g_c, mask)
 
         # we train the generator alternatively on the adversarial objective and
         # the accuracy of the generated notes
-
+        g_opt.zero_grad()
         if self.train_idx % 2:
-            self.manual_backward(pitch_loss + lo_loss)
+            self.manual_backward(f0_loss + lo_loss)
         else:
             self.manual_backward(G_loss)
-
         g_opt.step()
 
-        if self.reg:
-            self.log("reg/f0_loss", pitch_loss)
-            self.log("reg/lo_loss", lo_loss)
+        self.do_logs("train", u_c, e_c, g_c, G_loss, D_loss, f0_loss, lo_loss)
+        self.train_idx += 1
 
+    def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
+        """Compute validation step (do some logging)
+
+        Args:
+            batch (torch.Tensor): batch composed of (u_c, e_c, onsets, offsets)
+            batch_idx (int): batch index
+        """
+
+        u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask = batch
+
+        u_c = torch.cat([u_f0, u_lo], -2)
+        e_c = torch.cat([e_f0, e_lo], -2)
+
+        # generate new contours
+        g_c = self(u_c)
+        D_loss = self.disc_step(u_c, e_c, g_c)
+        G_loss, f0_loss, lo_loss = self.gen_step(u_c, e_c, g_c, mask)
+        self.do_logs("test", u_c, e_c, g_c, G_loss, D_loss, f0_loss, lo_loss)
+
+        self.val_idx += 1
+
+    def do_logs(self, mode, u_c, e_c, g_c, G_loss, D_loss, f0_loss, lo_loss):
+
+        # plot regularization
+        if self.reg:
+            self.log(f"{mode}/f0_loss", f0_loss)
+            self.log(f"{mode}/lo_loss", lo_loss)
+
+        # plot adversarial training
+        step = self.train_idx if mode == "train" else self.val_idx
         self.logger.experiment.add_scalars(
-            'abversarial',
+            f"{mode}/adv",
             {
                 'gen': G_loss,
                 'disc': D_loss
             },
-            global_step=self.train_idx,
+            global_step=step,
         )
 
-        self.train_idx += 1
+        if step % 10 == 0:
+
+            # plot contours
+            u_f0, u_lo = self.post_processing(u_c)
+            e_f0, e_lo = self.post_processing(e_c)
+            g_f0, g_lo = self.post_processing(g_c)
+
+            if self.reg:
+                plt.plot(u_f0[0].squeeze().cpu().detach(), label="u_f0")
+            plt.plot(g_f0[0].squeeze().cpu().detach(), label="g_f0")
+            plt.legend()
+            self.logger.experiment.add_figure("contours/gen/f0", plt.gcf(),
+                                              step)
+
+            plt.plot(e_f0[0].squeeze().cpu().detach(), label="e_f0")
+            plt.legend()
+            self.logger.experiment.add_figure("contours/sample/f0", plt.gcf(),
+                                              step)
+
+            if self.reg:
+                plt.plot(u_lo[0].squeeze().cpu().detach(), label="u_lo")
+            plt.plot(g_lo[0].squeeze().cpu().detach(), label="g_lo")
+            plt.legend()
+            self.logger.experiment.add_figure("contours/gen/lo", plt.gcf(),
+                                              step)
+
+            plt.plot(e_lo[0].squeeze().cpu().detach(), label="e_lo")
+            plt.legend()
+            self.logger.experiment.add_figure("contours/sample/lo", plt.gcf(),
+                                              step)
+
+        # listen to audio
+        if step % 10 == 0:
+
+            if self.ddsp is not None:
+
+                wav = self.c2wav(g_c[0:1]).detach()
+                wav = wav.reshape(-1).cpu().numpy()
+                self.logger.experiment.add_audio(
+                    "generation",
+                    wav,
+                    step,
+                    16000,
+                )
 
     def __midi2hz(self, x):
         return torch.pow(2, (x - 69) / 12) * 440
 
-    def c2wav(self, c):
-
+    def post_processing(self, c):
         f0, lo = c.split(1, -2)
         f0, lo = self.dataset.inverse_transform(f0, lo)
 
         # convert midi to hz
         f0 = self.__midi2hz(f0)
 
+        return f0, lo
+
+    def c2wav(self, c):
+        f0, lo = self.post_processing(c)
         f0 = f0.permute(0, 2, 1)
         lo = lo.permute(0, 2, 1)
 
@@ -256,81 +328,6 @@ class PerfGAN(pl.LightningModule):
         wav = wav.permute(0, 2, 1)
 
         return wav
-
-    def validation_step(self, batch: torch.Tensor, batch_idx: int) -> None:
-        """Compute validation step (do some logging)
-
-        Args:
-            batch (torch.Tensor): batch composed of (u_c, e_c, onsets, offsets)
-            batch_idx (int): batch index
-        """
-        self.val_idx += 1
-        if self.val_idx % 50 == 0:
-
-            u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask = batch
-
-            u_c = torch.cat([u_f0, u_lo], -2)
-            e_c = torch.cat([e_f0, e_lo], -2)
-
-            z = torch.randn_like(u_c)
-            x = torch.cat([u_c, z], -2)
-            # generate new contours
-            g_c = self(x)
-
-            u_f0, u_lo = u_c[0].split(1, -2)
-            e_f0, e_lo = e_c[0].split(1, -2)
-            g_f0, g_lo = g_c[0].split(1, -2)
-
-            # apply inverse transform
-
-            u_f0, u_lo = self.dataset.inverse_transform(u_f0, u_lo)
-            e_f0, e_lo = self.dataset.inverse_transform(e_f0, e_lo)
-            g_f0, g_lo = self.dataset.inverse_transform(g_f0, g_lo)
-
-            # convert midi to hz
-
-            u_f0 = self.__midi2hz(u_f0[0])
-            e_f0 = self.__midi2hz(e_f0[0])
-            g_f0 = self.__midi2hz(g_f0[0])
-
-            if self.reg:
-                plt.plot(u_f0.squeeze().cpu().detach(), label="u_f0")
-            plt.plot(g_f0.squeeze().cpu().detach(), label="g_f0")
-            plt.legend()
-            self.logger.experiment.add_figure("contours/gen/f0", plt.gcf(),
-                                              self.val_idx)
-
-            if self.reg:
-                plt.plot(e_f0.squeeze().cpu().detach(), label="e_f0")
-                plt.legend()
-                self.logger.experiment.add_figure("contours/sample/f0",
-                                                  plt.gcf(), self.val_idx)
-
-            if self.reg:
-                plt.plot(u_lo.squeeze().cpu().detach(), label="u_lo")
-            plt.plot(g_lo.squeeze().cpu().detach(), label="g_lo")
-            plt.legend()
-            self.logger.experiment.add_figure("contours/gen/lo", plt.gcf(),
-                                              self.val_idx)
-
-            if self.reg:
-                plt.plot(e_lo.squeeze().cpu().detach(), label="e_lo")
-                plt.legend()
-                self.logger.experiment.add_figure("contours/sample/lo",
-                                                  plt.gcf(), self.val_idx)
-
-            if self.ddsp is not None:
-                g_f0 = g_f0.float().reshape(1, -1, 1)
-                # artificialy add 2db
-                g_lo = g_lo.float().reshape(1, -1, 1) + 2
-                signal = self.ddsp(g_f0, g_lo)
-                signal = signal.reshape(-1).cpu().numpy()
-                self.logger.experiment.add_audio(
-                    "generation",
-                    signal,
-                    self.val_idx,
-                    16000,
-                )
 
     def configure_optimizers(self) -> Tuple:
         """Configure both generator and discriminator optimizers
@@ -360,7 +357,7 @@ if __name__ == "__main__":
         "feature_range": (-1, 1)
     })]
     n_sample = 1024
-    train_set = ContoursDataset(path="data/train_aug.pickle",
+    train_set = ContoursDataset(path="data/train_c.pickle",
                                 list_transforms=list_transforms)
     train_dataloader = DataLoader(dataset=train_set,
                                   batch_size=64,
