@@ -1,9 +1,9 @@
-import torch
 import pickle
 import matplotlib.pyplot as plt
 
 
 class Visualizer:
+
     def __init__(self, path):
         self.path = path
 
