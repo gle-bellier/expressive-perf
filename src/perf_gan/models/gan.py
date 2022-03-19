@@ -68,7 +68,7 @@ class PerfGAN(pl.LightningModule):
         self.reg = regularization
         self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=2).cuda()
 
-        self.train_set = ContoursDataset(path="data/train_aug.pickle",
+        self.train_set = ContoursDataset(path="data/train_c.pickle",
                                          list_transforms=list_transforms)
 
         self.test_set = ContoursDataset(path="data/test_c.pickle",
@@ -96,8 +96,7 @@ class PerfGAN(pl.LightningModule):
             torch.Tensor: generated expressive contours (B, C, L)
         """
 
-        # generate deviations contours
-
+        # generate contours deviation
         return self.gen(x) + x
 
     def gen_step(
@@ -118,8 +117,8 @@ class PerfGAN(pl.LightningModule):
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: generator loss, pitch loss,  loudness loss
         """
 
-        e_wav = c2wav(e_c, self.inv_transform, self.ddsp)
-        g_wav = c2wav(g_c, self.inv_transform, self.ddsp)
+        e_wav = c2wav(self, e_c)
+        g_wav = c2wav(self, g_c)
 
         disc_e = self.disc(e_wav)
         disc_g = self.disc(g_wav)
@@ -159,8 +158,8 @@ class PerfGAN(pl.LightningModule):
             torch.Tensor: dicriminator loss according to criteron
         """
 
-        e_wav = c2wav(e_c, self.inv_transform, self.ddsp)
-        g_wav = c2wav(g_c, self.inv_transform, self.ddsp)
+        e_wav = c2wav(self, e_c)
+        g_wav = c2wav(self, g_c)
 
         # discriminate
 
@@ -189,7 +188,7 @@ class PerfGAN(pl.LightningModule):
 
         g_opt, d_opt = self.optimizers()
 
-        u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask = batch
+        u_f0, u_lo, e_f0, e_lo, _, _, mask = batch
 
         u_c = torch.cat([u_f0, u_lo], -2)
         e_c = torch.cat([e_f0, e_lo], -2)
@@ -211,15 +210,14 @@ class PerfGAN(pl.LightningModule):
         # we train the generator alternatively on the adversarial objective and
         # the accuracy of the generated notes
         g_opt.zero_grad()
-        self.manual_backward(G_loss)  # + f0_loss + lo_loss)
+        self.manual_backward(G_loss + f0_loss + lo_loss)
         g_opt.step()
 
         # build contours and losses dicts
         c_dict = {"u": u_c, "e": e_c, "g": g_c}
         loss_dict = {"G": G_loss, "D": D_loss, "f0": f0_loss, "lo": lo_loss}
 
-        logging(self.log, self.logger, "train", self.train_idx, self.reg,
-                c_dict, loss_dict, self.inv_transform, self.ddsp)
+        logging(self, "train", c_dict, loss_dict)
 
         self.train_idx += 1
 
@@ -231,7 +229,7 @@ class PerfGAN(pl.LightningModule):
             batch_idx (int): batch index
         """
 
-        u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask = batch
+        u_f0, u_lo, e_f0, e_lo, _, _, mask = batch
 
         u_c = torch.cat([u_f0, u_lo], -2)
         e_c = torch.cat([e_f0, e_lo], -2)
@@ -244,8 +242,7 @@ class PerfGAN(pl.LightningModule):
         c_dict = {"u": u_c, "e": e_c, "g": g_c}
         loss_dict = {"G": G_loss, "D": D_loss, "f0": f0_loss, "lo": lo_loss}
 
-        logging(self.log, self.logger, "val", self.train_idx, self.reg, c_dict,
-                loss_dict, self.inv_transform, self.ddsp)
+        logging(self, "val", c_dict, loss_dict)
 
         self.val_idx += 1
 
@@ -306,8 +303,9 @@ if __name__ == "__main__":
                     b2=0.999)
 
     model.ddsp = torch.jit.load("ddsp_violin.ts").eval()
-
-    tb_logger = pl_loggers.TensorBoardLogger('runs/')
+    tb_logger = pl_loggers.TensorBoardLogger('runs/',
+                                             name="perf-gan",
+                                             default_hp_metric=False)
     trainer = pl.Trainer(
         gpus=1,
         max_epochs=10000,
