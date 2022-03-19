@@ -2,66 +2,60 @@ import torch
 import matplotlib.pyplot as plt
 
 
-def logging(log,
-            logger,
-            mode,
-            idx,
-            reg,
-            c_dict,
-            loss_dict,
-            inv_transform,
-            ddsp=None):
+def logging(model, mode, c_dict, loss_dict):
 
     # plot regularization
 
-    if reg:
-        log(f"{mode}/f0_loss", loss_dict["f0"])
-        log(f"{mode}/lo_loss", loss_dict["lo"])
+    if model.reg:
+        model.log(f"{mode}/f0_loss", loss_dict["f0"])
+        model.log(f"{mode}/lo_loss", loss_dict["lo"])
+
+    idx = model.train_idx if mode == "train" else model.val_idx
 
     # plot adversarial training
-    logger.experiment.add_scalars(
+    model.logger.experiment.add_scalars(
         f"{mode}/adv",
         {
             'gen': loss_dict["G"],
             'disc': loss_dict["D"]
         },
-        #global_idx=idx,
+        idx,
     )
 
     if idx % 10 == 0:
 
-        u_f0, u_lo = post_processing(c_dict["u"], inv_transform)
-        e_f0, e_lo = post_processing(c_dict["e"], inv_transform)
-        g_f0, g_lo = post_processing(c_dict["g"], inv_transform)
+        u_f0, u_lo = post_processing(c_dict["u"], model.inv_transform)
+        e_f0, e_lo = post_processing(c_dict["e"], model.inv_transform)
+        g_f0, g_lo = post_processing(c_dict["g"], model.inv_transform)
 
-        if reg:
+        if model.reg:
             plt.plot(u_f0[0].squeeze().cpu().detach(), label="u_f0")
         plt.plot(g_f0[0].squeeze().cpu().detach(), label="g_f0")
         plt.legend()
-        logger.experiment.add_figure("contours/gen/f0", plt.gcf(), idx)
+        model.logger.experiment.add_figure(f"{mode}/gen/f0", plt.gcf(), idx)
 
         plt.plot(e_f0[0].squeeze().cpu().detach(), label="e_f0")
         plt.legend()
-        logger.experiment.add_figure("contours/sample/f0", plt.gcf(), idx)
+        model.logger.experiment.add_figure(f"{mode}/sample/f0", plt.gcf(), idx)
 
-        if reg:
+        if model.reg:
             plt.plot(u_lo[0].squeeze().cpu().detach(), label="u_lo")
         plt.plot(g_lo[0].squeeze().cpu().detach(), label="g_lo")
         plt.legend()
-        logger.experiment.add_figure("contours/gen/lo", plt.gcf(), idx)
+        model.logger.experiment.add_figure(f"{mode}/gen/lo", plt.gcf(), idx)
 
         plt.plot(e_lo[0].squeeze().cpu().detach(), label="e_lo")
         plt.legend()
-        logger.experiment.add_figure("contours/sample/lo", plt.gcf(), idx)
+        model.logger.experiment.add_figure(f"{mode}/sample/lo", plt.gcf(), idx)
 
     # listen to audio
     if idx % 10 == 0:
 
-        if ddsp is not None:
+        if model.ddsp is not None:
 
-            wav = c2wav(c_dict["g"][0:1], inv_transform, ddsp).detach()
+            wav = c2wav(model, c_dict["g"][0:1]).detach()
             wav = wav.reshape(-1).cpu().numpy()
-            logger.experiment.add_audio(
+            model.logger.experiment.add_audio(
                 "generation",
                 wav,
                 idx,
@@ -83,12 +77,12 @@ def post_processing(c, inv_transform):
     return f0, lo
 
 
-def c2wav(c, inv_transform, ddsp):
-    f0, lo = post_processing(c, inv_transform)
+def c2wav(model, c):
+    f0, lo = post_processing(c, model.inv_transform)
     f0 = f0.permute(0, 2, 1)
     lo = lo.permute(0, 2, 1)
 
-    wav = ddsp(f0, lo)
+    wav = model.ddsp(f0, lo)
 
     # B L C -> B C L
     wav = wav.permute(0, 2, 1)
