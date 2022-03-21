@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from typing import List
 
+from perf_gan.models.blocks.conv_blocks import ConvTransposeBlock
 from perf_gan.models.d_block import DBlock
 from perf_gan.models.u_block import UBlock
 from perf_gan.models.bottleneck import Bottleneck
@@ -56,6 +57,10 @@ class Generator(nn.Module):
         self.bottleneck = Bottleneck(in_channels=down_channels[-1],
                                      out_channels=up_channels[0])
 
+        self.top = ConvTransposeBlock(in_channels=up_channels[-1],
+                                      out_channels=up_channels[-1],
+                                      dilation=1)
+
         # initialize weights:
         self.__initialize_weights()
 
@@ -103,6 +108,8 @@ class Generator(nn.Module):
         """
         x = self.down_sampling(x)
         x = self.bottleneck(x)
-        out = self.up_sampling(x)
+        x = self.up_sampling(x)
+
+        out = self.top(x)
 
         return out
