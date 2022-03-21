@@ -28,22 +28,14 @@ warnings.filterwarnings('ignore')
 
 class PerfGAN(pl.LightningModule):
 
-    def __init__(self, g_down_channels: List[int], g_up_channels: List[int],
-                 g_down_dilations: List[int], g_up_dilations: List[int],
-                 d_conv_channels: List[int], d_dilations: List[int],
-                 d_h_dims: List[int], criteron: float, regularization: bool,
-                 lr: float, b1: int, b2: int):
+    def __init__(self, g_params, d_params, criteron: float,
+                 regularization: bool, lr: float, b1: int, b2: int):
         """[summary]
 
         Args:
             mode (str): equals to "dev" for the model generating pitch and loudness deviation or "contours" for full contours generation
-            g_down_channels (List[int]): generator list of downsampling channels
-            g_up_channels (List[int]): generator list of upsampling channels
-            g_down_dilations (List[int]): generator list of down blocks dilations
-            g_up_dilations (List[int]): generator list of up blocks dilations
-            d_conv_channels (List[int]): discriminator list of convolutional channels
-            d_dilations (List[int]): discriminator list of dilations
-            d_h_dims (List[int]): discriminator list of hidden dimensions
+            g_params
+            d_params
             criteron (float): criteron for both generator and discriminator
             lr (float): learning rate
             b1 (int): b1 factor 
@@ -54,19 +46,19 @@ class PerfGAN(pl.LightningModule):
 
         self.save_hyperparameters()
 
-        self.gen = Generator(down_channels=g_down_channels,
-                             up_channels=g_up_channels,
-                             down_dilations=g_down_dilations,
-                             up_dilations=g_up_dilations)
+        self.gen = Generator(down_channels=g_params["down_channels"],
+                             up_channels=g_params["up_channels"],
+                             down_dilations=g_params["down_dilation"],
+                             up_dilations=g_params["up_dilation"])
 
-        self.disc = Discriminator(num_D=3,
-                                  ndf=16,
-                                  n_layers=4,
-                                  downsampling_factor=4)
+        self.disc = Discriminator(num_D=d_params["num_D"],
+                                  ndf=d_params["ndf"],
+                                  n_layers=d_params["n_layers"],
+                                  downsampling_factor=d_params["down_factor"])
 
         self.criteron = criteron
         self.reg = regularization
-        self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=2).cuda()
+        self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=0.5).cuda()
 
         self.train_set = ContoursDataset(path="data/train_c.pickle",
                                          list_transforms=list_transforms)
@@ -210,6 +202,7 @@ class PerfGAN(pl.LightningModule):
         # we train the generator alternatively on the adversarial objective and
         # the accuracy of the generated notes
         g_opt.zero_grad()
+
         self.manual_backward(G_loss + f0_loss + lo_loss)
         g_opt.step()
 
@@ -245,6 +238,12 @@ class PerfGAN(pl.LightningModule):
         logging(self, "val", c_dict, loss_dict)
 
         self.val_idx += 1
+
+    def set_ddsp(self, ddsp):
+        self.ddsp = ddsp
+        # freeze ddsp:
+        for p in self.ddsp.parameters():
+            p.requires_grad = False
 
     def configure_optimizers(self) -> Tuple:
         """Configure both generator and discriminator optimizers
@@ -288,21 +287,27 @@ if __name__ == "__main__":
     n_sample = 1024
     lr = 1e-3
     criteron = Hinge_loss()
+
+    g_params = {
+        "down_channels": [2, 32, 64, 128, 512],
+        "up_channels": [1024, 512, 128, 64, 32, 2],
+        "down_dilation": [1, 1, 1, 1],
+        "up_dilation": [1, 1, 1, 1, 1]
+    }
+
+    d_params = {"num_D": 5, "ndf": 16, "n_layers": 4, "down_factor": 4}
+
     # init model
-    model = PerfGAN(g_down_channels=[2, 16, 64, 128, 512],
-                    g_up_channels=[1024, 512, 128, 64, 16, 2],
-                    g_down_dilations=[1, 1, 1, 1, 1],
-                    g_up_dilations=[1, 1, 1, 1, 1, 1],
-                    d_conv_channels=[2, 64, 128, 256, 512, 1024],
-                    d_dilations=[1, 1, 1, 1, 1],
-                    d_h_dims=[n_sample, 512, 128, 64, 1],
+    model = PerfGAN(g_params,
+                    d_params,
                     criteron=criteron,
                     regularization=True,
                     lr=lr,
                     b1=0.5,
                     b2=0.999)
 
-    model.ddsp = torch.jit.load("ddsp_violin.ts").eval()
+    model.set_ddsp(torch.jit.load("ddsp_violin.ts"))
+
     tb_logger = pl_loggers.TensorBoardLogger('runs/',
                                              name="perf-gan",
                                              default_hp_metric=False)
