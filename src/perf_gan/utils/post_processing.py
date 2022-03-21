@@ -32,6 +32,7 @@ def logging(model, mode, c_dict, loss_dict):
             plt.plot(u_f0[0].squeeze().cpu().detach(), label="u_f0")
         plt.plot(g_f0[0].squeeze().cpu().detach(), label="g_f0")
         plt.legend()
+
         model.logger.experiment.add_figure(f"{mode}/gen/f0", plt.gcf(), idx)
 
         plt.plot(e_f0[0].squeeze().cpu().detach(), label="e_f0")
@@ -41,11 +42,13 @@ def logging(model, mode, c_dict, loss_dict):
         if model.reg:
             plt.plot(u_lo[0].squeeze().cpu().detach(), label="u_lo")
         plt.plot(g_lo[0].squeeze().cpu().detach(), label="g_lo")
+        plt.ylim([-10, 0])
         plt.legend()
         model.logger.experiment.add_figure(f"{mode}/gen/lo", plt.gcf(), idx)
 
         plt.plot(e_lo[0].squeeze().cpu().detach(), label="e_lo")
         plt.legend()
+        plt.ylim([-10, 0])
         model.logger.experiment.add_figure(f"{mode}/sample/lo", plt.gcf(), idx)
 
     # listen to audio
