@@ -3,32 +3,23 @@ import torch.nn as nn
 
 
 class ConvBlock(nn.Module):
-
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
-                 dilation: int,
+                 pool=False,
                  norm=False,
                  dropout=0.) -> None:
-        """Create 1D Convolutional block composed of a convolutional layer
-        followed by batch normalization and leaky ReLU.
-
-        Args:
-            in_channels (int): input number of channels
-            out_channels (int): output number of channels
-            dilation (int): dilation of the convolutional layer
-            norm (bool, optional): process batchnorm. Defaults to False.
-            dropout (float, optional): dropout probability. Defaults to 0.
-        """
 
         super().__init__()
+
+        stride = 2 if pool else 1
         self.norm = norm
         self.conv = nn.Conv1d(in_channels=in_channels,
                               out_channels=out_channels,
                               kernel_size=3,
-                              dilation=dilation,
-                              padding=self.__get_padding(3, 1, dilation),
-                              stride=1)
+                              dilation=1,
+                              padding=self.__get_padding(3, 1, 1),
+                              stride=stride)
 
         self.lr = nn.LeakyReLU(.2)
         self.bn = nn.BatchNorm1d(out_channels)
@@ -69,11 +60,10 @@ class ConvBlock(nn.Module):
 
 
 class ConvTransposeBlock(nn.Module):
-
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
-                 dilation: int,
+                 upsample=False,
                  norm=False,
                  dropout=0.) -> None:
         """Create 1D Convolutional block composed of a convolutional layer
@@ -88,14 +78,16 @@ class ConvTransposeBlock(nn.Module):
         """
 
         super().__init__()
+
+        stride = 2 if upsample else 1
         self.norm = norm
         self.conv = nn.ConvTranspose1d(in_channels=in_channels,
                                        out_channels=out_channels,
                                        kernel_size=3,
-                                       dilation=dilation,
-                                       padding=self.__get_padding(
-                                           3, 1, dilation),
-                                       stride=1)
+                                       dilation=1,
+                                       padding=self.__get_padding(3, 1, 1),
+                                       stride=stride,
+                                       output_padding=stride - 1)
 
         self.lr = nn.LeakyReLU(.2)
         self.bn = nn.BatchNorm1d(out_channels)
