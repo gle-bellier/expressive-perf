@@ -12,8 +12,12 @@ class Generator(nn.Module):
     """ Generator for performance contours modelling relying on a U-Net architecture
     """
 
-    def __init__(self, down_channels: List[int], up_channels: List[int],
-                 down_dilations: List[int], up_dilations: List[int]) -> None:
+    def __init__(self,
+                 down_channels: List[int],
+                 up_channels: List[int],
+                 down_dilations: List[int],
+                 up_dilations: List[int],
+                 dropout=0.) -> None:
         """Initialize the generator of the performance GAN. 
 
         Args:
@@ -34,30 +38,32 @@ class Generator(nn.Module):
         self.up_dilations = up_dilations
 
         is_first = [True] + [False] * (len(self.down_channels_in) - 1)
-        is_last = [False] * (len(self.up_channels_in) - 1) + [True]
 
         self.down_blocks = nn.ModuleList([
             DBlock(in_channels=in_channels,
                    out_channels=out_channels,
                    dilation=dilation,
-                   first=f) for in_channels, out_channels, dilation, f in zip(
-                       self.down_channels_in, self.down_channels_out,
-                       self.down_dilations, is_first)
+                   first=f,
+                   dropout=dropout)
+            for in_channels, out_channels, dilation, f in zip(
+                self.down_channels_in, self.down_channels_out,
+                self.down_dilations, is_first)
         ])
 
         self.up_blocks = nn.ModuleList([
             UBlock(in_channels=in_channels,
                    out_channels=out_channels,
                    dilation=dilation,
-                   last=l) for in_channels, out_channels, dilation, l in zip(
-                       self.up_channels_in, self.up_channels_out,
-                       self.up_dilations, is_last)
+                   dropout=dropout)
+            for in_channels, out_channels, dilation in zip(
+                self.up_channels_in[:-1], self.up_channels_out[:-1],
+                self.up_dilations[:-1])
         ])
 
         self.bottleneck = Bottleneck(in_channels=down_channels[-1],
                                      out_channels=up_channels[0])
 
-        self.top = ConvTransposeBlock(in_channels=up_channels[-1],
+        self.top = ConvTransposeBlock(in_channels=up_channels[-2],
                                       out_channels=up_channels[-1],
                                       dilation=1)
 

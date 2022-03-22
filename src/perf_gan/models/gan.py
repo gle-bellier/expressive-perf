@@ -28,8 +28,15 @@ warnings.filterwarnings('ignore')
 
 class PerfGAN(pl.LightningModule):
 
-    def __init__(self, g_params, d_params, criteron: float,
-                 regularization: bool, lr: float, b1: int, b2: int, dropout=0.):
+    def __init__(self,
+                 g_params,
+                 d_params,
+                 criteron: float,
+                 regularization: bool,
+                 lr: float,
+                 b1: int,
+                 b2: int,
+                 dropout=0.):
         """[summary]
 
         Args:
@@ -49,14 +56,13 @@ class PerfGAN(pl.LightningModule):
         self.gen = Generator(down_channels=g_params["down_channels"],
                              up_channels=g_params["up_channels"],
                              down_dilations=g_params["down_dilation"],
-                             up_dilations=g_params["up_dilation"], 
-                                   dropout=dropout)
+                             up_dilations=g_params["up_dilation"],
+                             dropout=dropout)
 
         self.disc = Discriminator(num_D=d_params["num_D"],
                                   ndf=d_params["ndf"],
                                   n_layers=d_params["n_layers"],
-                                  downsampling_factor=d_params["down_factor"], 
-                                   dropout=dropout)
+                                  downsampling_factor=d_params["down_factor"])
 
         self.criteron = criteron
         self.reg = regularization
@@ -306,7 +312,8 @@ if __name__ == "__main__":
                     regularization=False,
                     lr=lr,
                     b1=0.5,
-                    b2=0.999)
+                    b2=0.999,
+                    dropout=0.2)
 
     model.set_ddsp(torch.jit.load("ddsp_violin.ts"))
 
