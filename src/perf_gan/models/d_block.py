@@ -7,6 +7,7 @@ from perf_gan.models.blocks.conv_blocks import ConvBlock
 class DBlock(nn.Module):
     """Down sampling block for the U-net architecture
     """
+
     def __init__(self,
                  in_channels: int,
                  out_channels: int,

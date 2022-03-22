@@ -5,6 +5,7 @@ from perf_gan.models.blocks.conv_blocks import ConvTransposeBlock
 
 class UBlock(nn.Module):
     """Upsampling block"""
+
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
@@ -15,7 +16,7 @@ class UBlock(nn.Module):
         self.main = nn.Sequential(
             ConvTransposeBlock(in_channels,
                                out_channels,
-                               upsample=True
+                               upsample=upsample,
                                norm=False,
                                dropout=dropout),
             ConvTransposeBlock(out_channels,
