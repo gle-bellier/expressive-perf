@@ -11,7 +11,8 @@ class DBlock(nn.Module):
                  in_channels: int,
                  out_channels: int,
                  dilation: int,
-                 first=False) -> None:
+                 first=False,
+                 dropout=dropout) -> None:
         """Initialize the down sampling block
 
         Args:
@@ -24,8 +25,10 @@ class DBlock(nn.Module):
 
         self.first = first
         self.lr = nn.LeakyReLU()
-        self.conv1 = ConvBlock(in_channels, out_channels, dilation, norm=True)
-        self.conv2 = ConvBlock(out_channels, out_channels, dilation, norm=True)
+        self.conv1 = ConvBlock(in_channels, out_channels, dilation, norm=True, 
+                                   dropout=dropout)
+        self.conv2 = ConvBlock(out_channels, out_channels, dilation, norm=True, 
+                                   dropout=dropout)
 
         self.mp = nn.MaxPool1d(kernel_size=2)
         self.avg = nn.AvgPool1d(kernel_size=2)
