@@ -10,7 +10,8 @@ class UBlock(nn.Module):
                  in_channels: int,
                  out_channels: int,
                  dilation: int,
-                 last=False) -> None:
+                 last=False, 
+                 dropout=0.) -> None:
         """Initialize upsampling block
 
         Args:
@@ -27,27 +28,32 @@ class UBlock(nn.Module):
                 ConvTransposeBlock(in_channels,
                                    out_channels,
                                    dilation=dilation,
-                                   norm=True),
+                                   norm=True, 
+                                   dropout=dropout),
                 ConvTransposeBlock(out_channels,
                                    out_channels,
                                    dilation=dilation,
-                                   norm=True))
+                                   norm=True, 
+                                   dropout=dropout))
 
             self.residual = nn.Sequential(
                 nn.Upsample(scale_factor=2),
                 ConvTransposeBlock(in_channels=in_channels,
                                    out_channels=out_channels,
                                    dilation=dilation,
-                                   norm=True))
+                                   norm=True, 
+                                   dropout=dropout))
         else:
             self.residual = nn.Sequential(
                 nn.ConvTranspose1d(in_channels,
                                    out_channels,
                                    kernel_size=3,
                                    padding=get_padding(3, 1, dilation),
-                                   dilation=dilation))
+                                   dilation=dilation,
+                                   norm=True, 
+                                   dropout=dropout))
 
-        self.gru = nn.GRU(out_channels, out_channels, batch_first=True)
+        self.gru = nn.GRU(out_channels, out_channels, batch_first=True, dropout=dropout)
         self.lr = nn.LeakyReLU(0.2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
