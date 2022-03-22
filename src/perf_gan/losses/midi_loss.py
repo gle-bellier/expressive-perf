@@ -52,4 +52,4 @@ class Midi_loss(nn.Module):
         diff = torch.abs(mean_gen - mean_target)
         loss = torch.mean(torch.relu(diff - threshold))
 
-        return torch.pow(loss, 2)
+        return loss * (1+loss)

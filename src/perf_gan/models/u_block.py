@@ -48,6 +48,7 @@ class UBlock(nn.Module):
                                    dilation=dilation))
 
         self.gru = nn.GRU(out_channels, out_channels, batch_first=True)
+        self.lr = nn.LeakyReLU(0.2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Compute pass forward for the Upsampling convolution block.
@@ -72,4 +73,4 @@ class UBlock(nn.Module):
         x, _ = self.gru(x)
         x = x.permute(0, 2, 1)
 
-        return x
+        return self.lr(x)

@@ -116,8 +116,8 @@ class Cleaner:
 
 
 def main():
-    path = "data/train.pickle"
-    saving_path = "data/train_c.pickle"
+    path = "data/test.pickle"
+    saving_path = "data/test_c.pickle"
     da = Cleaner(path)
     da.clean()
 
