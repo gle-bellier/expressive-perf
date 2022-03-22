@@ -7,6 +7,7 @@ from perf_gan.models.blocks.conv_blocks import ConvBlock
 class DBlock(nn.Module):
     """Down sampling block for the U-net architecture
     """
+
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
@@ -25,10 +26,16 @@ class DBlock(nn.Module):
 
         self.first = first
         self.lr = nn.LeakyReLU()
-        self.conv1 = ConvBlock(in_channels, out_channels, dilation, norm=True, 
-                                   dropout=dropout)
-        self.conv2 = ConvBlock(out_channels, out_channels, dilation, norm=True, 
-                                   dropout=dropout)
+        self.conv1 = ConvBlock(in_channels,
+                               out_channels,
+                               dilation,
+                               norm=False,
+                               dropout=dropout)
+        self.conv2 = ConvBlock(out_channels,
+                               out_channels,
+                               dilation,
+                               norm=False,
+                               dropout=dropout)
 
         self.mp = nn.MaxPool1d(kernel_size=2)
         self.avg = nn.AvgPool1d(kernel_size=2)

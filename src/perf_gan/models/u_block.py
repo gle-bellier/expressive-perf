@@ -26,12 +26,12 @@ class UBlock(nn.Module):
             ConvTransposeBlock(in_channels,
                                out_channels,
                                dilation=dilation,
-                               norm=True,
+                               norm=False,
                                dropout=dropout),
             ConvTransposeBlock(out_channels,
                                out_channels,
                                dilation=dilation,
-                               norm=True,
+                               norm=False,
                                dropout=dropout))
 
         self.gru = nn.GRU(in_channels,

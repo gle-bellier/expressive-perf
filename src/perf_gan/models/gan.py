@@ -264,11 +264,9 @@ class PerfGAN(pl.LightningModule):
         b1 = self.hparams.b1
         b2 = self.hparams.b2
 
-        opt_g = torch.optim.Adam(self.gen.parameters(),
-                                 lr=lr)  #, betas=(b1, b2))
-        opt_d = torch.optim.Adam(self.disc.parameters(),
-                                 lr=lr)  #, betas=(b1, b2))
-        #opt_d = torch.optim.SGD(self.disc.parameters(), lr=lr)
+        opt_g = torch.optim.Adam(self.gen.parameters(), lr=lr, betas=(b1, b2))
+        opt_d = torch.optim.Adam(self.disc.parameters(), lr=lr, betas=(b1, b2))
+        # opt_d = torch.optim.SGD(self.disc.parameters(), lr=lr)
 
         return opt_g, opt_d
 
