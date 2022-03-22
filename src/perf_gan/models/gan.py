@@ -289,19 +289,19 @@ if __name__ == "__main__":
     criteron = Hinge_loss()
 
     g_params = {
-        "down_channels": [2, 32, 64, 128, 512],
-        "up_channels": [1024, 512, 128, 64, 32, 2],
-        "down_dilation": [1, 1, 1, 1],
-        "up_dilation": [1, 1, 1, 1, 1]
+        "down_channels": [2, 16, 32, 64, 128, 512],
+        "up_channels": [1024, 512, 128, 64, 32, 16, 2],
+        "down_dilation": [1, 1, 1, 1, 1],
+        "up_dilation": [1, 1, 1, 1, 1, 1]
     }
 
-    d_params = {"num_D": 5, "ndf": 16, "n_layers": 4, "down_factor": 4}
+    d_params = {"num_D": 3, "ndf": 16, "n_layers": 4, "down_factor": 4}
 
     # init model
     model = PerfGAN(g_params,
                     d_params,
                     criteron=criteron,
-                    regularization=True,
+                    regularization=False,
                     lr=lr,
                     b1=0.5,
                     b2=0.999)
