@@ -12,7 +12,7 @@ class DBlock(nn.Module):
                  out_channels: int,
                  dilation: int,
                  first=False,
-                 dropout=dropout) -> None:
+                 dropout=0.) -> None:
         """Initialize the down sampling block
 
         Args:
