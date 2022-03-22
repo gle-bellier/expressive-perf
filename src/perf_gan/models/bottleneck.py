@@ -1,10 +1,12 @@
 import torch
 import torch.nn as nn
 
+from perf_gan.models.blocks.conv_blocks import ConvBlock
+
 
 class Bottleneck(nn.Module):
 
-    def __init__(self, in_channels: int, out_channels: int) -> None:
+    def __init__(self, in_channels: int, out_channels: int, dropout:float) -> None:
         """Create bottleneck for U-Net architecture
 
         Args:
@@ -12,12 +14,7 @@ class Bottleneck(nn.Module):
             out_channels (int): ouput number of channels
         """
         super().__init__()
-        self.conv = nn.Conv1d(in_channels=in_channels,
-                              out_channels=out_channels,
-                              kernel_size=4,
-                              padding=1,
-                              stride=2)
-
+        self.conv = ConvBlock(in_channels, out_channels, pool=False, dropout=dropout)
         self.gru = nn.GRU(out_channels, out_channels, batch_first=True)
         self.lr = nn.LeakyReLU(.2)
 

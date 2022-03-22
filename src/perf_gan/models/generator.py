@@ -12,12 +12,7 @@ class Generator(nn.Module):
     """ Generator for performance contours modelling relying on a U-Net architecture
     """
 
-    def __init__(self,
-                 down_channels: List[int],
-                 up_channels: List[int],
-                 down_dilations: List[int],
-                 up_dilations: List[int],
-                 dropout=0.) -> None:
+    def __init__(self, channels: List[int], dropout=0.) -> None:
         """Initialize the generator of the performance GAN. 
 
         Args:
@@ -29,43 +24,28 @@ class Generator(nn.Module):
 
         super(Generator, self).__init__()
 
-        self.down_channels_in = down_channels[:-1]
-        self.down_channels_out = down_channels[1:]
-        self.down_dilations = down_dilations
-
-        self.up_channels_in = up_channels[:-1]
-        self.up_channels_out = up_channels[1:]
-        self.up_dilations = up_dilations
-
-        is_first = [True] + [False] * (len(self.down_channels_in) - 1)
-
         self.down_blocks = nn.ModuleList([
             DBlock(in_channels=in_channels,
                    out_channels=out_channels,
-                   dilation=dilation,
-                   first=f,
+                   pool=True,
                    dropout=dropout)
-            for in_channels, out_channels, dilation, f in zip(
-                self.down_channels_in, self.down_channels_out,
-                self.down_dilations, is_first)
+            for in_channels, out_channels in zip(channels[:-1], channels[1:])
         ])
 
         self.up_blocks = nn.ModuleList([
             UBlock(in_channels=in_channels,
                    out_channels=out_channels,
-                   dilation=dilation,
-                   dropout=dropout)
-            for in_channels, out_channels, dilation in zip(
-                self.up_channels_in[:-1], self.up_channels_out[:-1],
-                self.up_dilations[:-1])
+                   upsample=True,
+                   dropout=dropout) for in_channels, out_channels in zip(
+                       channels[-1:0:-1], channels[-2::-1])
         ])
 
-        self.bottleneck = Bottleneck(in_channels=down_channels[-1],
-                                     out_channels=up_channels[0])
+        self.bottleneck = Bottleneck(in_channels=channels[-1],
+                                     out_channels=channels[-1],
+                                     dropout=dropout)
 
-        self.top = ConvTransposeBlock(in_channels=up_channels[-2],
-                                      out_channels=up_channels[-1],
-                                      dilation=1)
+        self.top = ConvTransposeBlock(in_channels=channels[0],
+                                      out_channels=channels[0])
 
         # initialize weights:
         self.__initialize_weights()
@@ -119,3 +99,11 @@ class Generator(nn.Module):
         out = self.top(x)
 
         return out
+
+
+if __name__ == "__main__":
+    x = torch.randn(32, 2, 1024)
+
+    g = Generator([2, 4, 8, 16])
+
+    print(g(x).shape)
