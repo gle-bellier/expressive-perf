@@ -43,10 +43,10 @@ class Visualizer:
                 plt.legend()
                 plt.plot()
 
-                # plt.figure(figsize=(5, 8))
-                # plt.matshow(mask, fignum=1, aspect='auto')
-                # plt.title("mask")
-                # plt.show()
+                plt.figure(figsize=(5, 8))
+                plt.matshow(mask, fignum=1, aspect='auto')
+                plt.title("mask")
+                plt.show()
 
 
 if __name__ == '__main__':

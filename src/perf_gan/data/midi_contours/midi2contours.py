@@ -87,7 +87,7 @@ class MidiReader:
 
         # smoothinh the mask to take into account only sustain part
         # fix attack and release to 20% of the note length
-        SMOOTH_RATIO = 0.2
+        SMOOTH_RATIO = 0.1
 
         for note in self.data.notes:
             m = np.ones_like(onsets)
