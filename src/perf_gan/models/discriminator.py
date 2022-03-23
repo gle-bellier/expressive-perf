@@ -9,40 +9,38 @@ from perf_gan.models.blocks.linear_blocks import LinBlock
 class Discriminator(nn.Module):
     """Discriminator for performance contours modelling relying on a U-Net architecture
     """
-
     def __init__(self,
-                 conv_channels: List[int],
-                 dilations: List[int],
-                 h_dims: List[int],
+                 channels: List[int],
+                 n_layers: List[int],
+                 n_sample: int,
                  dropout=0.) -> None:
-        """Initialize the discriminator of the performance GAN. 
-
-        Args:
-            conv_channels (List[int]): channels of each convolutional block
-            dilations (List[int]): list of dilations of convolutional block
-            h_dims (List[int]): dims of linear layers
-        """
 
         super(Discriminator, self).__init__()
 
-        self.conv = nn.ModuleList([
-            ConvBlock(in_channels=in_channels,
-                      out_channels=out_channels,
-                      dropout=dropout)
-            for in_channels, out_channels in zip(
-                conv_channels[:-1], conv_channels[1:])
-        ])
+        n = int(n_sample / 4**(len(channels) - 1)) * channels[-1]
 
-        self.rnns = nn.ModuleList([
-            nn.GRU(out_channels, out_channels, batch_first=True)
-            for out_channels in conv_channels[1:]
+        print("n sample after conv ", n)
+
+        ratio = torch.log2(torch.tensor(n))
+        r = torch.linspace(0, ratio, n_layers)
+        h_dims = torch.pow(2, r.to(int)).flip(dims=[0])
+
+        print(h_dims)
+
+        input()
+        self.rnns = nn.ModuleList(
+            [nn.GRU(in_c, in_c, batch_first=True) for in_c in channels[:-1]])
+
+        self.conv = nn.ModuleList([
+            nn.Sequential(ConvBlock(in_c, out_c, pool=True, dropout=dropout),
+                          ConvBlock(out_c, out_c, pool=True, dropout=dropout))
+            for in_c, out_c in zip(channels[:-1], channels[1:])
         ])
 
         self.linears = nn.ModuleList([
-            LinBlock(in_features=in_features, out_features=out_features)
+            LinBlock(in_features, out_features)
             for in_features, out_features in zip(h_dims[:-1], h_dims[1:])
         ])
-        self.mp = nn.MaxPool1d(4)
 
         self.__initialize_weights()
 
@@ -65,11 +63,11 @@ class Discriminator(nn.Module):
 
         for conv, rnn in zip(self.conv, self.rnns):
             rnn.flatten_parameters()
-            x = conv(x)
             x = x.permute(0, 2, 1)
             x, _ = rnn(x)
             x = x.permute(0, 2, 1)
-            x = self.mp(x)
+
+            x = conv(x)
 
         x = nn.Flatten()(x)
         x = x.unsqueeze(1)
@@ -78,3 +76,10 @@ class Discriminator(nn.Module):
             x = l(x)
 
         return x
+
+
+if __name__ == '__main__':
+    d = Discriminator([2, 16, 64, 128, 512], 5, 1024)
+    x = torch.randn(32, 2, 1024)
+
+    print("d -> ", d(x).shape)
