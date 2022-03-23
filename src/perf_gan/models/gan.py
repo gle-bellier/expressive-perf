@@ -53,11 +53,7 @@ class PerfGAN(pl.LightningModule):
 
         self.save_hyperparameters()
 
-        self.gen = Generator(down_channels=g_params["down_channels"],
-                             up_channels=g_params["up_channels"],
-                             down_dilations=g_params["down_dilation"],
-                             up_dilations=g_params["up_dilation"],
-                             dropout=dropout)
+        self.gen = Generator(channels=g_params["channels"], dropout=dropout)
 
         self.disc = Discriminator(num_D=d_params["num_D"],
                                   ndf=d_params["ndf"],
@@ -66,7 +62,7 @@ class PerfGAN(pl.LightningModule):
 
         self.criteron = criteron
         self.reg = regularization
-        self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=0.5).cuda()
+        self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=2).cuda()
 
         self.train_set = ContoursDataset(path="data/train_c.pickle",
                                          list_transforms=list_transforms)
@@ -272,7 +268,7 @@ class PerfGAN(pl.LightningModule):
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_set,
-                          batch_size=8,
+                          batch_size=16,
                           shuffle=True,
                           num_workers=8)
 
@@ -295,10 +291,7 @@ if __name__ == "__main__":
     criteron = Hinge_loss()
 
     g_params = {
-        "down_channels": [2, 16, 32, 64, 128, 512],
-        "up_channels": [1024, 512, 128, 64, 32, 16, 2],
-        "down_dilation": [1, 1, 1, 1, 1],
-        "up_dilation": [1, 1, 1, 1, 1, 1]
+        "channels": [2, 16, 64, 128, 512, 1024],
     }
 
     d_params = {"num_D": 3, "ndf": 16, "n_layers": 4, "down_factor": 4}
@@ -307,7 +300,7 @@ if __name__ == "__main__":
     model = PerfGAN(g_params,
                     d_params,
                     criteron=criteron,
-                    regularization=False,
+                    regularization=True,
                     lr=lr,
                     b1=0.5,
                     b2=0.999,
