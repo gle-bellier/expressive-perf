@@ -45,7 +45,7 @@ class Generator(nn.Module):
                                      dropout=dropout)
 
         self.top = ConvTransposeBlock(in_channels=channels[0],
-                                      out_channels=channels[0])
+                                      out_channels=2)
 
         # initialize weights:
         self.__initialize_weights()
