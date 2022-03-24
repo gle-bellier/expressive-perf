@@ -79,7 +79,7 @@ class NLayerDiscriminator(nn.Module):
         return results
 
 
-class Discriminator(nn.Module):
+class WavDiscriminator(nn.Module):
 
     def __init__(self, num_D, ndf, n_layers, downsampling_factor):
         super().__init__()
@@ -103,8 +103,8 @@ class Discriminator(nn.Module):
 
 
 if __name__ == "__main__":
-    d = Discriminator(num_D=3, ndf=16, n_layers=4, downsampling_factor=4)
-    x = torch.randn(1, 1, 1024 * 16)
+    d = WavDiscriminator(num_D=2, ndf=16, n_layers=5, downsampling_factor=4)
+    x = torch.randn(8, 1, 1024 * 16)
 
     rslt = d(x)
     for i, scale in enumerate(rslt):
