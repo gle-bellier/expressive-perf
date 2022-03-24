@@ -25,10 +25,7 @@ class UBlock(nn.Module):
                                norm=False,
                                dropout=dropout))
 
-        self.gru = nn.GRU(in_channels,
-                          in_channels,
-                          batch_first=True,
-                          dropout=dropout)
+        self.gru = nn.GRU(in_channels, in_channels, batch_first=True)
         self.lr = nn.LeakyReLU(0.2)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

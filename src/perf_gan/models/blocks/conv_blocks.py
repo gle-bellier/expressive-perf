@@ -3,6 +3,7 @@ import torch.nn as nn
 
 
 class ConvBlock(nn.Module):
+
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
@@ -60,11 +61,12 @@ class ConvBlock(nn.Module):
 
 
 class ConvTransposeBlock(nn.Module):
+
     def __init__(self,
                  in_channels: int,
                  out_channels: int,
                  upsample=False,
-                 norm=False,
+                 norm=True,
                  dropout=0.) -> None:
         """Create 1D Convolutional block composed of a convolutional layer
         followed by batch normalization and leaky ReLU.
