@@ -9,6 +9,7 @@ from perf_gan.models.blocks.linear_blocks import LinBlock
 class Discriminator(nn.Module):
     """Discriminator for performance contours modelling relying on a U-Net architecture
     """
+
     def __init__(self,
                  channels: List[int],
                  n_layers: List[int],
@@ -19,15 +20,10 @@ class Discriminator(nn.Module):
 
         n = int(n_sample / 4**(len(channels) - 1)) * channels[-1]
 
-        print("n sample after conv ", n)
-
         ratio = torch.log2(torch.tensor(n))
         r = torch.linspace(0, ratio, n_layers)
         h_dims = torch.pow(2, r.to(int)).flip(dims=[0])
 
-        print(h_dims)
-
-        input()
         self.rnns = nn.ModuleList(
             [nn.GRU(in_c, in_c, batch_first=True) for in_c in channels[:-1]])
 
@@ -76,10 +72,3 @@ class Discriminator(nn.Module):
             x = l(x)
 
         return x
-
-
-if __name__ == '__main__':
-    d = Discriminator([2, 16, 64, 128, 512], 5, 1024)
-    x = torch.randn(32, 2, 1024)
-
-    print("d -> ", d(x).shape)

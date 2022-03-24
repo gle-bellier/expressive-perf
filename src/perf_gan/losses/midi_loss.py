@@ -42,6 +42,7 @@ class Midi_loss(nn.Module):
 
     def __contour_loss(self, mk_gen, mk_target, mask, threshold):
         # compute the means for each notes for both contours
+
         mean_gen = torch.mean(mk_gen,
                               dim=-1) / (torch.mean(mask, dim=-1) + 1e-6)
         mean_target = torch.mean(mk_target,
@@ -52,4 +53,4 @@ class Midi_loss(nn.Module):
         diff = torch.abs(mean_gen - mean_target)
         loss = torch.mean(torch.relu(diff - threshold))
 
-        return loss * (1+loss)
+        return loss * (1 + loss)
