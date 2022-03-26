@@ -52,10 +52,10 @@ class ConvBlock(nn.Module):
         """
         x = self.dp(x)
         x = self.conv(x)
-        out = self.lr(x)
 
         if self.norm:
-            out = self.bn(out)
+            x = self.bn(x)
+        out = self.lr(x)
 
         return out
 
@@ -121,9 +121,10 @@ class ConvTransposeBlock(nn.Module):
         """
         x = self.dp(x)
         x = self.conv(x)
-        out = self.lr(x)
 
         if self.norm:
-            out = self.bn(out)
+            x = self.bn(x)
+
+        out = self.lr(x)
 
         return out
