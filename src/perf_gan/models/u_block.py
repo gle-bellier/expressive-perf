@@ -17,14 +17,21 @@ class UBlock(nn.Module):
             ConvTransposeBlock(in_channels,
                                out_channels,
                                upsample=upsample,
-                               norm=False,
                                dropout=dropout),
             ConvTransposeBlock(out_channels,
                                out_channels,
                                upsample=False,
-                               norm=False,
                                dropout=dropout))
 
+        self.residual = ConvTransposeBlock(in_channels,
+                                           out_channels,
+                                           upsample=upsample,
+                                           dropout=dropout)
+
+        self.top = ConvTransposeBlock(out_channels,
+                                      out_channels,
+                                      upsample=False,
+                                      dropout=dropout)
         self.gru = nn.GRU(in_channels, in_channels, batch_first=True)
         self.lr = nn.LeakyReLU(0.2)
 
@@ -37,10 +44,16 @@ class UBlock(nn.Module):
         Returns:
             torch.Tensor: computed output of size (B, C_out, L)
         """
+
+        # compute residual
+        res = self.residual(x)
+
+        # compute main
         x = x.permute(0, 2, 1)
         x, _ = self.gru(x)
         x = x.permute(0, 2, 1)
+        x = self.lr(x)
+        main = self.main(x)
 
-        x = self.main(x)
-
-        return self.lr(x)
+        out = self.top(res + main)
+        return out
