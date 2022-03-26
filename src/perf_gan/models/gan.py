@@ -55,12 +55,12 @@ class PerfGAN(pl.LightningModule):
 
         self.save_hyperparameters()
 
-        self.gen = Generator(channels=g_params["channels"], dropout=0.)
+        self.gen = Generator(channels=g_params["channels"], dropout=0.3)
 
         self.disc = Discriminator(channels=d_params["channels"],
                                   n_layers=d_params["n_layers"],
                                   n_sample=512,
-                                  dropout=0.5)
+                                  dropout=0.3)
 
         self.wav_disc = WavDiscriminator(
             num_D=d_wav_params["num_D"],
@@ -72,9 +72,9 @@ class PerfGAN(pl.LightningModule):
         self.reg = regularization
 
         self.n_step_warmup = n_step_warmup
-        self.warmup = False
+        self.wav_gen = False
 
-        self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=2).cuda()
+        self.midi_loss = Midi_loss(f0_threshold=0.3, lo_threshold=3).cuda()
 
         self.train_set = ContoursDataset(path="data/train_c.pickle",
                                          list_transforms=list_transforms)
@@ -127,7 +127,7 @@ class PerfGAN(pl.LightningModule):
         Returns:
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: generator loss, pitch loss,  loudness loss
         """
-        if self.warmup:
+        if self.wav_gen:
             disc_e = self.disc(e_c)
             disc_g = self.disc(g_c)
             G_loss = self.criteron.g_loss(disc_e, disc_g)
@@ -173,7 +173,7 @@ class PerfGAN(pl.LightningModule):
             torch.Tensor: dicriminator loss according to criteron
         """
 
-        if self.warmup:
+        if self.wav_gen:
             disc_e = self.disc(e_c)
             disc_g = self.disc(g_c.detach())
 
@@ -207,7 +207,8 @@ class PerfGAN(pl.LightningModule):
             OrderedDict: dict {loss, progress_bar, log}
         """
 
-        self.warmup = self.train_idx < self.n_step_warmup
+        # we alternatively train on wav reconstruction of directly contours.
+        self.wav_gen = True  #self.train_idx % 2
         g_opt, d_opt, d_wav_opt = self.optimizers()
 
         u_f0, u_lo, e_f0, e_lo, _, _, mask = batch
@@ -221,7 +222,7 @@ class PerfGAN(pl.LightningModule):
         # train discriminator
         D_loss = self.disc_step(u_c, e_c, g_c)
 
-        if self.warmup:
+        if self.wav_gen:
             d_opt.zero_grad()
             self.manual_backward(D_loss)
             d_opt.step()
@@ -308,13 +309,13 @@ class PerfGAN(pl.LightningModule):
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_set,
-                          batch_size=16,
+                          batch_size=32,
                           shuffle=True,
                           num_workers=8)
 
     def val_dataloader(self):
         return DataLoader(self.test_set,
-                          batch_size=16,
+                          batch_size=32,
                           shuffle=False,
                           num_workers=8)
 
@@ -328,14 +329,14 @@ if __name__ == "__main__":
     })]
     n_sample = 512
     lr = 1e-3
-    criteron = LSGAN_loss()  #Hinge_loss()
+    criteron = Hinge_loss()
 
     g_params = {
-        "channels": [4, 16, 64, 128, 512, 1024],
+        "channels": [4, 16, 64, 128, 512],
     }
 
-    d_params = {"channels": [2, 32, 64, 512, 1024], "n_layers": 5}
-    d_wav_params = {"num_D": 4, "ndf": 16, "n_layers": 4, "down_factor": 4}
+    d_params = {"channels": [2, 16, 128, 512, 1024], "n_layers": 5}
+    d_wav_params = {"num_D": 2, "ndf": 16, "n_layers": 4, "down_factor": 4}
 
     # init model
     model = PerfGAN(g_params,

@@ -8,7 +8,7 @@ class ConvBlock(nn.Module):
                  in_channels: int,
                  out_channels: int,
                  pool=False,
-                 norm=False,
+                 norm=True,
                  dropout=0.) -> None:
 
         super().__init__()
