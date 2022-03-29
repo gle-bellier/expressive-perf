@@ -275,13 +275,13 @@ class PerfGAN(pl.LightningModule):
 
     def train_dataloader(self):
         return DataLoader(dataset=self.train_set,
-                          batch_size=32,
+                          batch_size=16,
                           shuffle=True,
                           num_workers=8)
 
     def val_dataloader(self):
         return DataLoader(self.test_set,
-                          batch_size=32,
+                          batch_size=16,
                           shuffle=False,
                           num_workers=8)
 
@@ -298,11 +298,11 @@ if __name__ == "__main__":
     criteron = Hinge_loss()
 
     g_params = {
-        "channels": [4, 32, 64, 256, 512],
+        "channels": [4, 32, 128, 512, 1024],
     }
 
     d_params = {"channels": [2, 16, 128, 512, 1024], "n_layers": 5}
-    d_wav_params = {"num_D": 2, "ndf": 16, "n_layers": 4, "down_factor": 4}
+    d_wav_params = {"num_D": 4, "ndf": 16, "n_layers": 5, "down_factor": 4}
 
     # init model
     model = PerfGAN(g_params,

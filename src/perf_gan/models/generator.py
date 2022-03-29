@@ -3,6 +3,8 @@ import torch.nn as nn
 from typing import List
 
 from perf_gan.models.blocks.conv_blocks import ConvTransposeBlock
+from perf_gan.models.blocks.conv_blocks import ConvBlock
+
 from perf_gan.models.d_block import DBlock
 from perf_gan.models.u_block import UBlock
 from perf_gan.models.bottleneck import Bottleneck
@@ -44,8 +46,9 @@ class Generator(nn.Module):
                                      out_channels=channels[-1],
                                      dropout=dropout)
 
-        self.top = ConvTransposeBlock(in_channels=channels[0],
-                                      out_channels=2)
+        #self.top = torch.conv1d(in_channels=channels[0], out_channels=2)
+
+        self.top = nn.Conv1d(channels[0], 2, 3, 1, 1)
 
         # initialize weights:
         self.__initialize_weights()
@@ -83,7 +86,8 @@ class Generator(nn.Module):
             x = u_block(x)
         return x
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor):  #, onsets: torch.Tensor,
+        #offsets: torch.Tensor) -> torch.Tensor:
         """Compute pass forward for the generator
 
         Args:
@@ -92,13 +96,24 @@ class Generator(nn.Module):
         Returns:
             torch.Tensor: output contours of size (B, 2, L)
         """
-        x = self.down_sampling(x)
-        x = self.bottleneck(x)
-        x = self.up_sampling(x)
 
-        out = self.top(x)
+        # compute deviation
 
-        return out
+        dev = self.down_sampling(x)
+        dev = self.bottleneck(dev)
+        dev = self.up_sampling(dev)
+        dev = self.top(dev)
+
+        # # deviation is bounded
+        # dev = torch.sigmoid(dev)
+
+        # # mix dev and unexpressive contours
+        # # provide onsets and offsets
+
+        # x = torch.cat([x + dev, onsets, offsets], dim=-2)
+        # out = self.mix(x)
+
+        return dev
 
 
 if __name__ == "__main__":
