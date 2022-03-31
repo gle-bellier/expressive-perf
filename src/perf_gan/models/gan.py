@@ -31,7 +31,6 @@ class PerfGAN(pl.LightningModule):
 
     def __init__(self,
                  g_params,
-                 d_params,
                  d_wav_params,
                  criteron: float,
                  regularization: bool,
@@ -55,7 +54,9 @@ class PerfGAN(pl.LightningModule):
 
         self.save_hyperparameters()
 
-        self.gen = Generator(channels=g_params["channels"], dropout=0.3)
+        self.gen = Generator(unet_c=g_params["unet_c"],
+                             mixer_c=g_params["mixer_c"],
+                             dropout=0.3)
 
         self.wav_disc = WavDiscriminator(
             num_D=d_wav_params["num_D"],
@@ -87,20 +88,22 @@ class PerfGAN(pl.LightningModule):
         self.automatic_optimization = False
         self.ddsp = None
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Compute generator pass forward with unexpressive contours
-        (MIDI)
+    def forward(self, u_c, onsets, offsets):
 
-        Args:
-            x (torch.Tensor): unexpressive contours (B, C, L)
+        g_dev = self.gen(u_c, onsets, offsets)
 
-        Returns:
-            torch.Tensor: generated expressive contours (B, C, L)
-        """
+        u_f0, u_lo = torch.split(u_c, 1, -2)
 
-        # generate contours deviation
+        # reset to MIDI range
+        u_f0, u_lo = self.train_set.inverse_transform(u_f0, u_lo)
+        # add deviation
+        g_f0, g_lo = u_f0 + g_dev[:, 0:1, :], u_lo + g_dev[:, 1:2, :]
+        # back to [-1, 1] range
+        g_f0, g_lo = self.train_set.transform(g_f0, g_lo)
 
-        return self.gen(x) + x[:, 0:2, :]
+        g_c = torch.cat([g_f0, g_lo], -2)
+
+        return g_c
 
     def gen_step(
             self, u_c: torch.Tensor, e_c: torch.Tensor, g_c: torch.Tensor,
@@ -131,7 +134,7 @@ class PerfGAN(pl.LightningModule):
             G_loss += self.criteron.g_loss(scale_e[-1], scale_g[-1])
 
         if self.reg:
-            u_f0, u_lo, _, _ = u_c.split(1, 1)
+            u_f0, u_lo = u_c.split(1, 1)
             g_f0, g_lo = g_c.split(1, 1)
 
             # apply inverse transform to compare pitches (midi range) and loudness (loudness range)
@@ -193,11 +196,11 @@ class PerfGAN(pl.LightningModule):
 
         u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask = batch
 
-        u_c = torch.cat([u_f0, u_lo, onsets, offsets], -2)
+        u_c = torch.cat([u_f0, u_lo], -2)
         e_c = torch.cat([e_f0, e_lo], -2)
 
         # generate new contours
-        g_c = self(u_c)
+        g_c = self(u_c, onsets, offsets)
 
         # train discriminator
         D_loss = self.disc_step(u_c, e_c, g_c)
@@ -218,7 +221,7 @@ class PerfGAN(pl.LightningModule):
         g_opt.step()
 
         # build contours and losses dicts
-        c_dict = {"u": u_c[:, 0:2, :], "e": e_c, "g": g_c}
+        c_dict = {"u": u_c, "e": e_c, "g": g_c}
         loss_dict = {"G": G_loss, "D": D_loss, "f0": f0_loss, "lo": lo_loss}
 
         logging(self, "train", c_dict, loss_dict)
@@ -235,11 +238,11 @@ class PerfGAN(pl.LightningModule):
 
         u_f0, u_lo, e_f0, e_lo, onsets, offsets, mask = batch
 
-        u_c = torch.cat([u_f0, u_lo, onsets, offsets], -2)
+        u_c = torch.cat([u_f0, u_lo], -2)
         e_c = torch.cat([e_f0, e_lo], -2)
 
         # generate new contours
-        g_c = self(u_c)
+        g_c = self(u_c, onsets, offsets)
         D_loss = self.disc_step(u_c, e_c, g_c)
         G_loss, f0_loss, lo_loss = self.gen_step(u_c, e_c, g_c, mask)
 
@@ -297,16 +300,13 @@ if __name__ == "__main__":
     lr = 1e-3
     criteron = Hinge_loss()
 
-    g_params = {
-        "channels": [4, 32, 128, 512, 1024],
-    }
+    g_params = {"unet_c": [2, 32, 128, 512, 1024], "mixer_c": [4, 4, 2, 2]}
 
     d_params = {"channels": [2, 16, 128, 512, 1024], "n_layers": 5}
     d_wav_params = {"num_D": 4, "ndf": 16, "n_layers": 5, "down_factor": 4}
 
     # init model
     model = PerfGAN(g_params,
-                    d_params,
                     d_wav_params,
                     criteron=criteron,
                     regularization=True,
